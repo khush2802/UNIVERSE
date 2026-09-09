@@ -174,7 +174,7 @@ export function UniverseCanvas({ projects = [] }: { projects?: Project[] }) {
             >
               <Scene
                 reduced={reduced}
-                starCount={1400}
+                starCount={700}
                 hoveredId={hoveredId}
                 selectedId={selectedId}
                 onHover={setHoveredId}

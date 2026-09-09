@@ -511,3 +511,70 @@ each row.
 Hover, click, scroll. The reference mockup also shows "drag to navigate",
 which isn't implemented — there are no orbit controls yet. Listing it would
 promise an interaction that does nothing.
+
+---
+
+# Chunk 05e — one sky for the whole site
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/components/background/SpaceBackground.tsx` | Fixed page-wide background. |
+| `src/components/background/Starfield.tsx` | Moved from `hero/`; now global. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/app/layout.tsx` | Mounts the background once, for every page. |
+| `src/components/hero/Hero.tsx` | Dropped its own starfield and opaque wash. |
+| `src/app/globals.css` | `.hero-stars` retired for `.space-bg`. |
+| `src/components/universe/UniverseCanvas.tsx` | 3D star count 1400 → 700. |
+
+## Fixed, not per-section
+
+The background is one fixed layer in the root layout rather than a
+starfield per section. Per-section fields would mean several canvases
+compositing at once and, worse, a visible seam wherever one field ended and
+the next began — which is the opposite of the consistency this is for.
+
+Fixed positioning also means the canvas never resizes on scroll. A
+background that scrolled with the page would have to be as tall as the
+document.
+
+## Stars drift, they don't sit still
+
+A fixed background across a long page reads as dead. Stars now shift at a
+fraction of scroll speed, near ones further than distant ones, so scrolling
+reveals depth instead of sliding one flat image.
+
+The offset wraps with a modulo, so the field is endless. Without that, a
+long page would eventually scroll into empty sky.
+
+## Contrast
+
+Global brightness is dialled to 0.72, below what the hero used. Below the
+fold the field sits behind body copy, and §61 requires sufficient contrast —
+a bright starfield behind paragraphs trades readability for decoration.
+
+## Two things that would have broken
+
+**The hero's wash was opaque.** It used solid hex stops, which would have
+painted straight over the shared starfield and reintroduced the seam.
+It's now semi-transparent, keeping the horizon glow while letting the sky
+through.
+
+**Stacking.** The hero's background layers use `-z-10`, the same as the
+global background. `relative` alone doesn't create a stacking context, so
+both would have resolved against the root and their order decided by DOM
+position — fragile. The hero now has `isolate`, scoping its layers to
+itself.
+
+## The 3D scene has fewer stars now
+
+Its canvas is transparent, so the global field shows through behind it.
+Both at full density read as a doubled sky. At 700 the two layers move at
+different rates and read as parallax instead.

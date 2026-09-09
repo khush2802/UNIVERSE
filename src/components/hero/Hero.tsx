@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { ArrowRight, FileText } from 'lucide-react';
-import { Starfield } from './Starfield';
 import { profile } from '@/data/profile';
 
 /**
@@ -16,21 +15,20 @@ export function Hero() {
   const { name, role, disciplines, headline, intro, tagline, social } = profile;
 
   return (
-    <div className="relative flex min-h-svh flex-col justify-center overflow-hidden">
+    <div className="relative isolate flex min-h-svh flex-col justify-center overflow-hidden">
       {/* --- Background layers -------------------------------------- */}
       <div aria-hidden className="absolute inset-0 -z-10">
-        {/* Base gradient: light gathers toward the horizon at the bottom,
-            so the section has a direction rather than being flat black. */}
-        <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_115%,#12203f_0%,#080d1a_45%,#05070e_100%)]" />
+        {/*
+          The starfield and nebulae are global now (SpaceBackground, mounted
+          in the root layout), so the hero no longer draws its own. What
+          stays here is only what is specific to this section: the horizon
+          glow and the planet.
 
-        {/* Distant galaxy, off-centre. Centred would read as a vignette. */}
-        <div className="absolute -right-[10%] top-[8%] h-[42vw] w-[42vw] rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.16)_0%,rgba(34,211,238,0.06)_45%,transparent_70%)] blur-3xl" />
-
-        <div className="absolute -left-[15%] top-[35%] h-[35vw] w-[35vw] rounded-full bg-[radial-gradient(circle,rgba(34,211,238,0.10)_0%,transparent_68%)] blur-3xl" />
-
-        <div className="hero-stars absolute inset-0">
-          <Starfield />
-        </div>
+          The wash below is semi-transparent on purpose. An opaque gradient
+          would hide the shared starfield and reintroduce the seam this
+          change exists to remove.
+        */}
+        <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_50%_115%,rgba(24,44,86,0.78)_0%,rgba(8,13,26,0.45)_48%,transparent_100%)]" />
 
         {/* The planet. A CSS sphere: one gradient for the lit limb, an
             inset shadow for the terminator, and a soft ring for

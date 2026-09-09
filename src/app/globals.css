@@ -261,9 +261,11 @@ h1, h2, h3, h4 {
 .hero-5 { animation-delay: 690ms; }
 .hero-6 { animation-delay: 820ms; }
 
-.hero-stars {
+/* The background fades in once, on first load — it belongs to the page,
+   not to any one section, so it never animates again on scroll. */
+.space-bg {
   opacity: 0;
-  animation: hero-fade 1100ms ease-out 100ms forwards;
+  animation: hero-fade 1200ms ease-out 80ms forwards;
 }
 
 .hero-planet {
@@ -275,7 +277,7 @@ h1, h2, h3, h4 {
    animation — no animation. The page arrives already composed. */
 @media (prefers-reduced-motion: reduce) {
   .hero-item,
-  .hero-stars,
+  .space-bg,
   .hero-planet {
     opacity: 1;
     animation: none;

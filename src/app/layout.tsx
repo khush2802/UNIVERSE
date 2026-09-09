@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk } from 'next/font/google';
 import { Nav } from '@/components/layout/Nav';
+import { SpaceBackground } from '@/components/background/SpaceBackground';
 import { siteConfig } from '@/data/profile';
 import './globals.css';
 
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body>
+        <SpaceBackground />
         <Nav />
         <main id="main">{children}</main>
       </body>
