@@ -125,14 +125,14 @@ export function layoutArchitecture(architecture: Architecture): ArchitectureLayo
 
   const byId = new Map(laidOut.map((n) => [n.node.id, n]));
 
-  const laidOutEdges: LaidOutEdge[] = edges
-    .map((edge) => {
-      const from = byId.get(edge.from);
-      const to = byId.get(edge.to);
-      if (!from || !to) return null;
-      return { id: edge.id, from, to, label: edge.label };
-    })
-    .filter((e): e is LaidOutEdge => e !== null);
+  const laidOutEdges: LaidOutEdge[] = [];
+  for (const edge of edges) {
+    const from = byId.get(edge.from);
+    const to = byId.get(edge.to);
+    if (from && to) {
+      laidOutEdges.push({ id: edge.id, from, to, label: edge.label });
+    }
+  }
 
   return {
     nodes: laidOut,
