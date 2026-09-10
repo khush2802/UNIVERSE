@@ -578,3 +578,1125 @@ itself.
 Its canvas is transparent, so the global field shows through behind it.
 Both at full density read as a doubled sky. At 700 the two layers move at
 different rates and read as parallax instead.
+
+---
+
+# Chunk 06 — projects grid
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/components/projects/ProjectGrid.tsx` | Filters, search, empty states. |
+| `src/components/projects/ProjectCard.tsx` | One card. |
+| `src/components/projects/ProjectVisual.tsx` | §54 image hierarchy. |
+| `src/lib/projectVisual.ts` | Deterministic visual params, category labels. |
+| `src/app/projects/[slug]/page.tsx` | Detail route. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/app/page.tsx` | Projects placeholder replaced. |
+
+## The card visual is the same object as the planet
+
+§54's hierarchy is: repository social preview → generated visual by
+category → clean fallback. The generated tier here isn't a generic
+placeholder — it's the same sphere the project has in the universe, same
+accent, same hash-derived variation. A card and its planet are recognisably
+one object, so moving between the grid and the 3D view doesn't feel like
+two different sites.
+
+Hue shift is kept to ±17°. Enough that two Web projects don't look
+identical, not enough to break the domain's colour identity — the accent
+still has to read as "this is a Web project".
+
+## Uncertainty survives into the UI
+
+Inferred technologies carry a `?` and a tooltip saying they weren't
+confirmed by a repository file. The detail page shows each technology's
+level and the files behind it.
+
+This matters more than it looks. The pipeline is built to distinguish
+confirmed from inferred (§27); if the interface then renders both
+identically, that distinction was decorative. A claim with no file behind
+it is an assertion.
+
+## Two empty states, not one
+
+"Nothing matches your search" and "no repositories have been analysed yet"
+are different facts. Collapsing them would tell a visitor that Khush has no
+projects when they had simply mistyped.
+
+## Filters that reveal nothing aren't shown
+
+Only categories containing at least one project get a button. With the
+current fixtures that means `cloud` is suppressed — a filter that leads to
+an empty grid is a dead control.
+
+Counts come from the unfiltered set, so a button always shows how many it
+would reveal rather than how many survive the current search.
+
+## The detail route exists early
+
+Chunk 06's cards link to `/projects/[slug]`, so the route had to exist —
+shipping a grid whose primary action 404s would be worse than shipping a
+plain page that works. It currently renders name, description, links,
+technologies with evidence, features and unknowns. Chunk 07 adds the
+cinematic transition and the section tabs; 08 and 09 add the diagrams.
+
+## Current state with fixtures
+
+5 visible projects, 1 hidden. Filters: All 5, AI 1, Web 1, Backend 1,
+DSA 1, Other 1. Searching `postgres` matches one project by technology
+name, which is usually how someone actually looks for work.
+
+---
+
+# Chunk 06b — real repositories
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/data/repositories.ts` | Khush's real public repos, pre-analysis. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/lib/dataSource.ts` | Serves real repos always; fixtures in dev only. |
+| `src/lib/projectVisual.ts` | Uses the stored preview URL. |
+| `src/components/projects/ProjectCard.tsx` | Distinguishes "not analysed" from "analysing". |
+
+## What is and isn't in `repositories.ts`
+
+Only facts GitHub states directly: owner, name, URL, primary language, and
+the description where one is set. Nothing about what these projects *do*.
+
+That restraint is deliberate. Writing plausible technologies and
+architectures for these repos would be a manually authored project card
+(§4) — just written by the assistant rather than the owner, which is worse,
+not better.
+
+So every record is created at status `discovering`: real identity, no
+analysis. Technologies hold only the primary language, cited to GitHub's
+language statistics rather than dressed up as a dependency-manifest
+finding. The data layer is `unknown`. The category is `other` at zero
+confidence, because no classification has been made.
+
+Chunks 13–17 replace these with generated records carrying real evidence.
+
+## Cards now show real images
+
+GitHub generates a social preview for every public repository, so each real
+card pulls a genuine image from `opengraph.githubassets.com`. If a request
+fails — renamed, deleted, made private — `onError` falls back to the
+generated sphere, so a card is never broken.
+
+Fixtures deliberately return no preview URL, since their repositories don't
+exist and requesting one would only produce a failed request and a flash of
+broken layout.
+
+## `node-by-me` is excluded
+
+It is a fork of `nodejs/node`. Ingesting it would produce a project entry
+implying Khush wrote the Node.js runtime — 190k files of someone else's
+code, attributed to him. Chunk 13 enforces this at validation; here it's
+simply left out.
+
+## What this makes visible
+
+Four of the five repositories have no description, so their cards read
+"Not analysed yet" with no summary. That is the honest current state, and
+it shows the real constraint: **the portfolio can only be as good as the
+repository metadata.** A README and a real repository name are now
+portfolio work — fix the repo, and the portfolio updates itself.
+
+---
+
+# Chunk 07 — project detail
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/components/projects/ProjectSectionNav.tsx` | Sticky in-page nav. |
+| `src/components/projects/ProjectStatus.tsx` | Status banner, evidence chips. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/app/projects/[slug]/page.tsx` | Rebuilt with sections, evidence, prev/next. |
+| `src/components/projects/ProjectCard.tsx` | Paired for view transitions. |
+| `src/components/universe/DomainPanel.tsx` | Links a planet through to its project. |
+| `src/app/globals.css` | View-transition timing. |
+| `next.config.mjs` | Enables view transitions. |
+
+## Sections, not tabs
+
+§18 lists these as tabs. I used sections with a sticky nav instead, because
+tabs hide content: a recruiter skimming can't see what's behind one,
+find-in-page misses it, and a crawler may never render it. All three matter
+more here than the tab affordance — this page exists to be read fast by
+someone who won't click around.
+
+## Sections only appear when they have content
+
+A project with no architecture gets no Architecture heading. An empty
+section implies something is missing that ought to be there, when for most
+of these projects nothing should be.
+
+Your real repositories therefore show three sections — Overview, Technology,
+Not determined. Fixture `fx-1` shows five.
+
+## The cinematic transition, done differently
+
+§18 describes the planet flying at the camera and the universe dissolving.
+A literal version needs one WebGL canvas persisting across routes, which
+means either a single-page app shell or re-mounting the scene on the detail
+page — a large amount of machinery for one animation.
+
+The browser's View Transitions API gives the same continuity: the card's
+image morphs into the detail page's header image. It works identically
+whether the visitor arrived from a planet or from the grid, respects
+reduced motion, and browsers without support simply navigate.
+
+## §18 asks for two sections §26 can't fill
+
+§18 lists **Implementation** and **Learnings**. §26's `ProjectAnalysis`
+schema has no fields for either, and §62 forbids inventing them.
+
+"Learnings" is the harder problem: what someone took away from building
+something is first-person and cannot be derived from a repository. No
+amount of analysis produces it honestly.
+
+This is the one place manual authoring is legitimate — §4 permits the owner
+to correct and extend generated information. I have deliberately **not**
+added the fields yet, because adding them now would mean either empty
+headings or placeholder text on every project. When you want them, they
+should be an owner-authored note attached to a project, clearly distinct
+from analyser output.
+
+## Evidence is visible throughout
+
+Each technology shows its level, its confidence where inferred, and the
+files it was found in. A claim with no supporting file says so.
+
+The pipeline is built to separate confirmed from inferred; rendering both
+identically would make that distinction decorative at the only point it
+matters — where someone reads it.
+
+## Possible warning on first run
+
+`next.config.mjs` sets `experimental.viewTransition`. If your Next version
+doesn't recognise it you'll see a config warning in the terminal. It's
+harmless — the page still works, you just lose the morph. Tell me if it
+appears and I'll drop the flag.
+
+---
+
+# Chunk 07a — config fix
+
+`experimental.viewTransition` was rejected by Next 15.1.6; the flag arrived
+in 15.2. Removed, so the boot warning is gone.
+
+The consequence: the card-to-detail morph does not run. Everything else on
+the detail page is unaffected.
+
+The CSS rules and the paired `viewTransitionName` values are deliberately
+kept. They cost nothing, produce no warning, and are exactly what's needed
+the moment Next is upgraded — at which point the morph starts working with
+no further changes.
+
+To enable it later:
+
+```bash
+npm install next@latest
+```
+
+then add back to `next.config.mjs`:
+
+```js
+experimental: { viewTransition: true },
+```
+
+I'd leave it until the build is otherwise finished. Upgrading a framework
+mid-project to gain one animation is a poor trade when everything currently
+compiles.
+
+---
+
+# Chunk 08 — architecture visualisation
+
+**No new dependencies** — see below.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/lib/architectureLayout.ts` | Layered graph layout. |
+| `src/components/architecture/ArchitectureDiagram.tsx` | The diagram and node panel. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/app/projects/[slug]/page.tsx` | Renders the diagram; adds a list view. |
+
+## Why not React Flow
+
+§2 asks for React Flow, and §2 also says to use SVG/CSS where simpler. This
+is that case.
+
+React Flow's value is pan, zoom, node dragging and automatic edge routing.
+A read-only diagram of three to eight nodes needs none of them. It also
+doesn't lay out graphs — you supply positions or add dagre or elk — so it
+would arrive with a second dependency to do what `architectureLayout.ts`
+does in thirty lines.
+
+The accessibility argument is the stronger one. Here every node is a real
+`<button>`, so tab order, Enter and Space, and focus rings work without
+being reimplemented. §61 requires the diagram to be keyboard-operable, and
+this is the shortest honest route to that.
+
+Nodes are HTML positioned over an SVG edge layer — the same technique the
+universe uses for its labels.
+
+## The layout, and what testing it changed
+
+Each node sits one row below the deepest node feeding it, then rows are
+distributed evenly. That reproduces the vertical flow of §35's own examples
+while still handling branching.
+
+Two things only surfaced by running it against awkward graphs:
+
+**Cycles.** An architecture can legitimately contain one — a cache both
+served by and written to by the API. Relaxation pushes those two nodes down
+on every pass until the iteration cap stops it, which is why the cap
+exists: without it, the page hangs.
+
+**Empty rows.** The cap terminating left that graph laid out as layers 0, 7
+and 8 — one node, six blank rows, then the rest. Layers are now compacted to
+consecutive integers, which keeps the ordering the relaxation worked out
+while removing rows nothing sits in. Same graph now lays out as 0, 1, 2.
+
+Verified shapes: linear, branching, cyclic, and disconnected nodes with no
+edges at all.
+
+## The diagram is not the only copy
+
+Below it, a collapsed "Read as a list" gives the same graph linearised. §61
+forbids leaving information reachable only through a visual, and a list is
+also what a narrow screen wants when eight nodes won't fit side by side.
+
+Inferred components are marked with a question mark on the diagram itself,
+not only inside their panel — someone who never clicks a node still sees
+which parts of the drawing are guesses.
+
+## Where to see it
+
+Only fixture `fx-1` currently has an architecture. Your real repositories
+have `architecture: null`, so the section doesn't render for them — which
+is correct: nothing has analysed them.
+
+`/projects/fixture-sql-fullstack`
+
+---
+
+# Chunk 08b — visual direction
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/lib/planetTextures.ts` | Ring textures, UV remap, spark geometry. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/components/background/SpaceBackground.tsx` | Richer nebula field, grain, vignette. |
+| `src/components/universe/Scene.tsx` | Dark planet bodies, rim light, rings, sparks. |
+| `src/components/projects/ProjectVisual.tsx` | Card spheres matched to the planets. |
+
+## How far the violet went, and why not further
+
+The reference is a saturated violet sky. Two things limited it:
+
+**§8 assigns violet to AI/ML**, cyan to Web, teal to DSA. A uniformly violet
+background makes the colour that *means* "AI" identical to the colour that
+means "background", and the palette stops carrying information. Violet leads
+here, but cyan and magenta carry real weight and no single hue covers the
+field. There's one small warm blob too — without an opposing temperature
+somewhere, violets read as grey tinted lighter and darker.
+
+**§61 needs contrast**, so the opacities were set against measured ratios
+rather than by eye. At the densest overlap the sky reaches about `#392969`,
+where body text scores 11.1 and muted text 5.0 against a 4.5 threshold. The
+one colour that fails there is `--color-ink-faint`, which is why small
+captions sit on `.plate` and `.panel` surfaces rather than directly on the
+sky.
+
+Turned out I could go considerably richer than expected — the measurement
+raised the ceiling rather than lowering it.
+
+## Grain
+
+Large flat gradients band visibly on 8-bit displays: you see rings where the
+value steps. Noise breaks the steps up, and it's also what gives the
+reference its painted rather than rendered quality. Generated by the
+browser's own turbulence filter, so it costs no image request.
+
+## Planets: dark body, coloured light
+
+The reference planet is nearly black where it isn't lit — the accent arrives
+as rim light and ring, not as surface paint. So `color` mixes the accent 72%
+toward near-black while `emissive` stays at full strength. The rim is tight
+(1.16×) and additive, so it reads as an edge catching light rather than fog.
+
+## Rings
+
+Generated per accent on a canvas, with Cassini-style gaps cut out — a smooth
+gradient reads as a painted disc, while a few dark divisions read as many
+particles.
+
+`RingGeometry`'s default UVs lay a texture across the bounding box, which
+slices the banding across the disc instead of running it outward.
+`radialiseRingUVs` rewrites `u` as radial distance.
+
+**Two numbers tuned by measurement, not eye:**
+
+At a 50% threshold, five of six domains came out ringed — which defeats the
+variety the hash exists to create. If almost everything has rings, rings stop
+distinguishing anything. Now 32%, giving three: AI, Web, Achievements.
+
+Minimum tilt is 0.28 rad rather than 0.1. Below roughly 15° a ring is edge-on
+and renders as a bright line through the planet, which looks like a glitch.
+DSA was landing at 7°.
+
+## Sparks
+
+A second, separate point layer: few, large, additive, and placed among the
+orbits rather than on a distant shell. The starfield stays dim and even
+because it's sky. That difference in scale and placement is what reads as
+glitter instead of as more stars.
+
+---
+
+# Chunk 08c — planet surfaces, and the white blocks
+
+No new dependencies.
+
+## The white blocks were the rings
+
+My mistake, and worth recording because the cause is not obvious.
+
+The ring texture used pure white at 0.85 alpha for its highlight bands, on a
+mesh at 0.9 opacity, additively blended. Additive blending *adds* to what's
+behind it, so a near-white source clips almost immediately:
+
+```
+old peak: 255 × 0.85 × 0.90 = 195 added per channel  → clips to white
+new peak: accent lightened 45%, × 0.42 × 0.62 = ~50  → bright, still coloured
+```
+
+Highlights are now the accent colour lifted toward white rather than white
+itself, at roughly half the alpha. The ring still reads as the brightest
+thing on the planet without blowing out.
+
+## Planets were circles because they had no surface
+
+A solid material plus a lighting gradient is, visually, a circle. The
+reference sphere is dark, mottled, and covered in bright specks — and the
+specks are most of what makes it read as an object rather than a shape.
+
+Two generated maps per planet:
+
+- **`map`** — near-black base tinted toward the domain accent, with ~90 soft
+  blobs of varying size for mottling and ~40 darker patches so the surface
+  has lows as well as highs. Sizes vary by an order of magnitude on purpose:
+  uniform blobs read as a repeating pattern, mixed sizes read as terrain.
+
+- **`emissiveMap`** — only the specks, in clusters rather than evenly
+  scattered. Even distribution looks like noise; clusters look geological.
+  Each speck gets a halo before its core, because a bare dot at this scale is
+  one pixel and vanishes.
+
+Keeping them separate is the point: specks in the colour map alone go dark on
+the night side, which is exactly where they are most worth seeing. As an
+emissive map they glow regardless of the light.
+
+Everything is seeded, so a planet's surface is identical on every load — the
+same promise as its position.
+
+## Memory
+
+At 1024×512, six planets with two maps each came to **24 MB** of GPU memory.
+A domain planet occupies roughly 40 screen pixels at default zoom and a few
+hundred when focused, so that was rendering detail well below the size of a
+pixel.
+
+Halved to 512×256: **6 MB**, no visible difference (§50).
+
+Moons keep a plain material for the same reason — at a tenth of a planet's
+radius their surface detail would be sub-pixel, so they get brightness and a
+halo instead. Texturing them would have added 20 MB for something invisible.
+
+## Also fixed
+
+The `K` at the centre used `mix-blend-multiply`, which behaves
+unpredictably over the star's additive glow. Now a solid dark warm colour
+with a soft halo.
+
+---
+
+# Chunk 08d — square points, star surface, K removed
+
+No new dependencies.
+
+## The grey squares were point sprites
+
+Not the rings — that was a separate bug, also real, fixed in 08c.
+
+`THREE.PointsMaterial` draws every point as a screen-aligned **square**. At
+the starfield's size that passes for a dot, but the sparks at 0.5 units were
+large enough to show their true shape: hard-edged boxes scattered through
+the scene.
+
+Fixed by giving both point clouds a radial-gradient sprite as their `map`,
+which cuts the square down to a soft disc. One 64×64 texture is shared by
+every point cloud in the scene — 16 KB total.
+
+The starfield also needed `alphaTest`. Without it the sprite's transparent
+corners are drawn as black squares over whatever is behind them, which
+trades grey boxes for black ones.
+
+## The star has a surface now
+
+A `meshBasicMaterial` in one flat colour renders as a disc no matter how
+much glow surrounds it. The star now gets generated granulation — overlapping
+warm and pale cells, kept within a narrow brightness range, because high
+contrast there would read as a planet's continents rather than a star's
+surface.
+
+Still `meshBasicMaterial`: the star is the scene's light source and must
+never be shaded by its own light.
+
+## K removed
+
+Gone from the 3D overlay and from the flat SVG map. The `__star__`
+projection key it needed has been removed too, along with the per-frame
+origin projection that fed it — dead code once nothing consumed it.
+
+The name below the star stays. That is the accessible statement of what the
+centre is, and §61 wants it in the DOM rather than only in the scene.
+
+---
+
+# Chunk 08e — banded gas giants
+
+No new dependencies.
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/lib/planetTextures.ts` | Latitude banding, ring rebuild, emissive rework. |
+| `src/components/universe/Scene.tsx` | Wider rings on every planet, normal blending. |
+
+## Bands, not blobs
+
+This is the whole difference between the references and what was there.
+
+The previous texture scattered soft blobs of varying size, which reads as
+rocky terrain. Every reference is a **banded gas giant**, and the horizontal
+banding is what the eye actually recognises.
+
+So the surface is now built from latitude bands:
+
+- Widths vary a lot, and bands tighten toward the poles. Evenly spaced
+  stripes look like a flag; real banding has a few broad zones with narrow
+  ones crowded between.
+- Each band is drawn column by column with two sine offsets at different
+  frequencies, so edges undulate and never quite repeat across the seam.
+  A single frequency would show as a vertical scar where the texture wraps.
+- One to three storms, always stretched horizontally — anything circular on
+  a banded planet reads as a hole rather than weather.
+- Poles darken, or the bands run flat off the top and the sphere loses its
+  roundness at the limb.
+
+The palette is built around the domain accent but widened with a cream and a
+near-black. The references are never one hue at different brightnesses —
+they hold a warm pale band against a cool dark one, and that contrast is
+most of what makes them read as atmosphere.
+
+## Rings are matter now, not light
+
+Two previous versions used additive blending. That is why they glowed, and
+why the first one clipped to white.
+
+Every reference shows rings as *material*: bands of dust and ice, brighter
+than the planet but plainly solid. Normal blending means a ring can now
+**occlude** the planet where it passes in front — something additive
+blending can never do, because it only ever brightens.
+
+The texture is many narrow bands rather than a gradient. A gradient reads as
+a painted disc; discrete bands read as billions of particles at varying
+density. Three to five wide divisions are cut through, because the eye needs
+those breaks to read separate orbiting populations rather than one disc.
+
+Proportions came from the references too: 1.28× to 2.35× the planet radius,
+where before it was 1.5× to 2.6× — a thin hoop floating clear of the planet,
+which is not what any of them look like.
+
+## Every planet is ringed now
+
+I previously gave rings to three of six, arguing that if everything has
+rings then rings distinguish nothing.
+
+The references settle it: all four are ringed, and the ring *is* the
+silhouette that makes them recognisable. Variety comes from tilt and from
+each ring's generated band structure, which differ per planet regardless.
+
+Checked that the wider rings don't reach a neighbouring orbit — the largest
+ring spans 1.12 units against a 2.07-unit minimum gap between orbits.
+
+## Specks are gone
+
+The emissive map used to scatter bright dots across the surface. That suited
+the first reference — a rocky sphere dusted with sparkles — but a banded gas
+giant has none, and dots over bands read as dirt on the lens.
+
+It is now a faint equatorial glow whose only job is keeping the night side
+from going fully black. With no emission at all, a planet's unlit half
+disappears against the sky and the sphere reads as a crescent.
+
+---
+
+# Chunk 08f — four fixes
+
+No new dependencies.
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/components/universe/Scene.tsx` | Scaling, dimming, ring eligibility, structure. |
+| `src/lib/planetTextures.ts` | Star banding. |
+
+## 1. Hover scaled the sphere through its own ring
+
+The scale was applied to `meshRef` — the sphere alone. The ring is a sibling
+in the same group, so it stayed put while the sphere grew straight through
+it.
+
+The sphere, its two glow shells and its ring now live in one inner group,
+and hover scales that. Everything grows together and the proportions hold.
+
+Project moons are deliberately **outside** that group. Inside it they'd scale
+too, and because their orbital radii are set relative to the planet's size, a
+hovered planet would fling its projects outward and snap them back on
+release. A moon's orbit belongs to the planet's position, not its apparent
+size.
+
+## 2. Planets looked transparent because they were
+
+The dimming code faded `material.opacity` to 0.35 when another planet was
+selected. That is literal transparency — the nebula showed straight through
+the surface.
+
+A dimmed planet should look **unlit, not ghostly**. Dimming now multiplies
+the material's colour down toward black and lowers emission; `transparent` is
+off the material entirely, so a planet is fully opaque at all times.
+
+## 3. Rings on the outer planets only
+
+The two innermost — AI and Web — are now bare.
+
+Orbit position decides this rather than a hash, which mirrors how real
+systems are arranged: close to a star, ring material doesn't survive, and
+the ringed giants sit further out. That makes the arrangement mean something
+instead of being decoration scattered at random, and it gives the crowded
+inner orbits room to pass each other without ring edges overlapping.
+
+## 4. The star has banding now
+
+Same visual language as the planets, so the centre reads as part of the same
+family of objects rather than a lamp surrounded by them.
+
+Far subtler than a planet's — a few percent contrast between adjacent bands.
+A star with obvious stripes looks like a planet that happens to be bright.
+Granulation is layered over the top, because bands alone read as a striped
+ball.
+
+## Regression caught while restructuring
+
+Rewriting the planet's JSX dropped `{children}`, which is what renders the
+project moons. Every project would have silently vanished from the universe.
+Found by checking that the prop was still consumed after the edit, not by
+looking at the result.
+
+---
+
+# Chunk 08g — sparks removed
+
+No new dependencies.
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/components/universe/Scene.tsx` | `Sparks` component and its mount deleted. |
+| `src/lib/planetTextures.ts` | `createSparkGeometry` deleted. |
+
+## What went and what stayed
+
+The spark layer sat at spread 17 — **inside** the orbits, among the planets.
+That was the point of it, and it's also why it read as blobs floating in the
+foreground rather than as anything belonging to the scene.
+
+Removed entirely, along with its geometry helper. Nothing else referenced
+either.
+
+The background starfield is untouched. It sits on a shell 46–80 units out,
+well beyond the outermost orbit at 15.4, and with size attenuation the
+nearest of those stars renders far smaller than any planet. It reads as sky,
+which is what it was always for.
+
+Both were point clouds using the same sprite texture, which is why they
+looked related — but only one of them was ever in the solar system.
+
+---
+
+# Chunk 09 — data layer
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/components/database/DataLayerView.tsx` | Dispatcher across the six states. |
+| `src/components/database/SqlSchema.tsx` | Relational view. |
+| `src/components/database/DataLayerViews.tsx` | Document, vector, key-value, and the two empty states. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/app/projects/[slug]/page.tsx` | Renders the views; drops its stub helper. |
+
+## The switch is exhaustive, and there is no default case
+
+`renderLayer` covers all six kinds with no fallback. Adding a seventh — a
+graph store, say — will fail the TypeScript build here until a view exists
+for it.
+
+That is the payoff from making `DataLayer` a discriminated union back in
+chunk 02. A `default` case is exactly what would let a graph database
+quietly render as a vector pipeline because both happen to be "not SQL".
+
+## Each view follows its own rule
+
+**SQL (§29)** — tables with keys marked, relationships stated in words as
+well as notation. "1:N" is precise but only to people who already know it,
+and this page is read by recruiters as often as by engineers, so "has many"
+is spelled out.
+
+I decided against drawing connector lines between the table cards.
+Connectors in a responsive grid have to be recomputed on every reflow and
+cross each other badly past four or five tables. A stated relationship is
+unambiguous at any width, readable aloud, and survives a phone. The
+cardinality was always the information; the line was just a way of carrying
+it.
+
+**Document (§30)** — nested fields, and a reference is labelled "references"
+rather than drawn as a foreign key. The distinction is real: in a document
+store a reference is a value the application resolves, not a constraint the
+database enforces. Rendering it as an FK would claim a guarantee that
+doesn't exist.
+
+**Vector (§31)** — the retrieval flow, because there is no schema to show.
+What a reader wants is the path a document takes to become an answer.
+
+**Key-value (§32)** — only the roles the repository provides evidence for.
+A Redis used purely as a cache shows one role, not the full menu of things
+Redis can do. Listing capabilities would be describing the product rather
+than the project.
+
+## Two empty states that must not merge
+
+"No persistent database detected" is a **conclusion** — the analyser looked
+and found nothing, which for a CLI or an algorithms repository is the
+correct and complete answer.
+
+"Could not be determined" is an **admission** — it looked and couldn't tell.
+
+Merging them would turn every failed analysis into a claim that the project
+has no database. For a project that plainly does, that's the confident
+wrongness §62 exists to prevent.
+
+## When the section appears
+
+`unknown` on an analysed project is a finding worth showing, and §34 wants
+it stated rather than left blank.
+
+`unknown` on a project that has never been analysed is not a finding.
+Nothing has looked at it, and the status banner already says so. Rendering
+"could not be determined" there would report a failed investigation that
+never took place — so the section is hidden for `discovering` projects
+entirely. That's why your five real repositories show no data-layer section.
+
+## Where to see each state
+
+| View | Page |
+|---|---|
+| SQL | `/projects/fixture-sql-fullstack` |
+| Vector | `/projects/fixture-vector-rag` |
+| Document | `/projects/fixture-document-store` |
+| No database | `/projects/fixture-no-database` |
+| Unknown | `/projects/fixture-unknown-layer` |
+| Key-value | `/projects/fixture-keyvalue` (hidden from the grid; reachable by URL) |
+
+All six render. This is what the fixtures were built for in chunk 02 — every
+branch checked against something real rather than the Mongo and Redis views
+being written blind.
+
+---
+
+# Chunk 10 — skills
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/data/skills.ts` | What Khush states he works in. Editable by hand. |
+| `src/lib/skills.ts` | Merges declared skills with detected technologies. |
+| `src/components/skills/SkillsConstellation.tsx` | The grid and the detail panel. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/app/page.tsx` | Skills placeholder replaced. |
+
+## Two sources, kept distinguishable
+
+§55 says skills should connect to projects automatically. §14 says they must
+come from the actual resume and profile data. Those are different sources,
+and merging them silently would be dishonest both ways:
+
+- A skill with no repository behind it is a **claim**. Real, but a claim.
+- A technology found in a file is **evidence**.
+
+So both appear, and the interface says which is which. Skills with project
+evidence render brighter and carry a count; the rest are visibly quieter but
+present — "I work in Go" is true whether or not a public repository proves it
+yet, and most working code isn't public.
+
+Selecting a skill with no evidence says so plainly rather than showing an
+empty list.
+
+## Only confirmed technologies count as evidence
+
+An inferred technology is a model's opinion. Letting one prove a skill would
+launder a guess into a claim, so `buildSkills` skips anything not marked
+`confirmed` (§27).
+
+## Detected-but-undeclared skills are added automatically
+
+A repository is better evidence than a list. If analysis finds something
+`skills.ts` doesn't mention, it appears anyway — currently CSS, HTML and
+Redis, from the seeded repositories and fixtures.
+
+## `skills.ts` is yours to edit
+
+It is a statement of what you work in, not generated output. Add and remove
+freely. One thing to keep: write `name` the way the technology appears in
+package manifests — `Node.js` rather than `Node` — because that string is
+what links a skill to detected technologies. Matching normalises punctuation,
+so `Node.js` and `nodejs` already match; `Node` and `nodejs` do not.
+
+## Current state
+
+22 declared skills, 9 with repository evidence. That ratio moves on its own
+as chunks 13–17 analyse real repositories — no editing required.
+
+## One thing I noticed while building this
+
+Your GitHub repository `GTA-5` is seeded with no description, because GitHub
+has none set. You have separately described it as an animated web experience
+built with React, GSAP and Tailwind.
+
+I have **not** written that into the project record. It is your own statement
+rather than my inference, so it would be legitimate under §4's owner-override
+clause — but the record currently says "not analysed", and quietly filling it
+in would make an owner-authored description indistinguishable from analyser
+output, which is the one line this whole build has been holding.
+
+Two clean options, whenever you want them:
+
+1. Add the description to the repository on GitHub. It then flows in through
+   the normal path and needs no special case.
+2. Add an explicit `ownerNotes` field to the project type, rendered under a
+   heading that says it came from you. That would also be where §18's
+   "Learnings" section belongs.
+
+---
+
+# Chunk 11 — journey, achievements, about, contact
+
+No new dependencies. **Chunks 01–11 are now complete: the portfolio is
+deployable.**
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/data/journey.ts` | Timeline, achievements, about copy. Yours to edit. |
+| `src/components/journey/Journey.tsx` | Timeline and achievement grid. |
+| `src/components/contact/Contact.tsx` | Contact links and CP profiles. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/app/page.tsx` | Four placeholders replaced; About section added. |
+| `src/components/layout/Nav.tsx` | About entry. |
+
+## What is actually in there
+
+**Journey** — two entries: the B.Tech at IIIT Pune (2022–2026) and
+graduating in 2026.
+
+**Achievements** — one: powerlifting, "trains and competes".
+
+That is sparse, and it is the correct state rather than a gap to paper over.
+The reference mockup showed medal counts, competition placements and a team
+captaincy. Those were mockup content, not facts about you, and §56 and §62
+both rule them out. Every category with nothing verified in it renders
+nothing at all — an empty "Certifications" heading advertises an absence,
+whereas no heading simply says nothing.
+
+`src/data/journey.ts` is where you fix this. Add internships, placements,
+certifications, hackathons — anything that actually happened. The components
+handle any number of entries and any mix of categories.
+
+## Contact
+
+Email, LinkedIn and GitHub render. **The resume button does not**, because
+`social.resume` is still null.
+
+That is intentional: a resume button pointing at nothing costs a visitor a
+click to discover the absence, and a dead control on a portfolio reads as
+carelessness. Drop the PDF in `/public`, set the path, and the button
+appears.
+
+Competitive programming profiles are links only — no ratings, no solved
+counts. Those change weekly, and a number that was true four months ago is
+the small dishonesty §62 exists to prevent.
+
+## The timeline runs vertically
+
+The mockup's is horizontal. A horizontal timeline has to either scroll
+sideways or compress its entries as they accumulate, and this list only
+grows. Vertical costs nothing to extend and reads identically on a phone.
+
+## Still needed from you
+
+- **Resume PDF** → `/public`, then set `social.resume` in `profile.ts`
+- **Real achievements** → `src/data/journey.ts`
+- **Deployed URL** → `siteConfig.url` in `profile.ts`
+
+None of these block deployment. The site works without them; it just says
+less.
+
+---
+
+# Chunk 11a — bug fix pass
+
+No new dependencies. Audit of chunks 01–11 before deployment.
+
+## 1. Render loop in `useActiveSection` (serious)
+
+`ProjectSectionNav` built its id list inline — `sections.map(s => s.id)` —
+so it handed the hook a **new array on every render**. With the array itself
+as the effect dependency, the effect tore down and rebuilt the
+IntersectionObserver each render; the fresh observer fired immediately;
+that called `setActiveId`; and the resulting render produced another new
+array.
+
+A render loop on every project detail page.
+
+`Nav` was safe by luck — its array is module-level, so the reference is
+stable.
+
+Fixed at the hook rather than at the call site: it now depends on the ids'
+*contents* via a joined string, so no future caller can reintroduce this by
+passing an inline array.
+
+## 2. Timeline markers all stacked at the top
+
+The node markers on the journey rail are absolutely positioned, but the
+`<li>` elements weren't positioned, so every marker resolved against the
+`<ol>` and they piled up at the top of the list instead of sitting beside
+their entries.
+
+## 3. My own fix for #2 broke the horizontal alignment
+
+Adding `relative` to the `<li>` fixed the stacking and moved every marker
+32px to the right of the rail — because the indent was `pl-8` on the `<ol>`,
+so the item's box started past the border.
+
+Properly fixed by moving the indent onto the `<li>`, which puts its padding
+box exactly at the rail. `left-0` plus a half-width shift now centres the
+marker, and it stays centred if the indent ever changes.
+
+Recording this because it is the failure mode of fixing layout you can't
+see: the first fix was correct about the cause and wrong about the result.
+
+## 4. Clicking a project planet focused nothing
+
+`handleSelectProject` set only `selectedProject`, leaving `selectedId` null.
+So the camera never moved, the orbits never froze, and the moon you had just
+clicked kept travelling out of frame while its panel sat open describing it.
+
+Worse, the comment directly above it claimed the opposite — that selecting a
+project also focuses its domain. A comment asserting behaviour the code
+doesn't have is more dangerous than no comment, because the next reader
+trusts it.
+
+## 5. Hero headline and intro shared a delay class
+
+Both carried `hero-4`, so they animated in together instead of in sequence.
+The stagger now runs to seven steps.
+
+## Checked and clean
+
+- No unused imports or variables
+- No `any` types
+- Every non-null assertion is guarded on the preceding line
+- All React keys unique within scope
+- Every interactive component has `'use client'`
+- No client-only APIs in server components
+- Detail-page scroll margins clear the sticky nav
+
+## What this pass could not find
+
+This is static analysis. I can't run the build or see the page, so anything
+that only shows at runtime — layout that overflows at a particular width, a
+colour that reads wrong on your monitor, a scroll interaction that feels
+off — is still out there.
+
+Bug #1 in particular is the kind that would have been obvious immediately in
+a browser and took a deliberate hunt to find on paper.
+
+---
+
+# Delivery A — environment
+
+No new dependencies.
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/app/globals.css` | Indigo palette, retuned surface tiers. |
+| `src/components/universe/Scene.tsx` | Starfield rebuilt as depth shells. |
+| `src/components/background/SpaceBackground.tsx` | Layered nebula, dust lanes. |
+| `src/components/background/Starfield.tsx` | Clustering, colour temperature. |
+
+## Palette: environment purple, accents kept
+
+§12 asks for the whole site to move to purple/indigo. The domain accents —
+violet for AI, cyan for Web, teal for DSA — are consumed in 10 files and
+carry *meaning*: they are how a Web project stays visually distinct from an
+AI one.
+
+So the environment moved and the accents didn't. Backgrounds, surfaces,
+borders, text and chrome are now indigo and lavender; domain colours survive
+on planets, card indicators, skill dots and category labels. §4 already
+draws this line for the 3D scene ("do NOT simply make everything purple") —
+this applies the same rule to the 2D site.
+
+Base hue is held at roughly 255° across every step of the surface stack. A
+base that drifts between blue and purple as it lightens reads as
+inconsistent rather than as one material at different depths.
+
+## Two contrast corrections, both found by measuring
+
+**`--color-ink-faint` failed on raised surfaces.** At `#7d70a8` it scored
+3.97 against `--color-raised`, under the 4.5 threshold. Lifted to `#8d80bb`,
+which clears 4.5 on every surface in the stack.
+
+**The nebula was too strong where its regions overlap.** The three masses in
+the upper right stack, and at the opacities I first chose the combined
+density took muted text down to **3.10**. Dialled back until the worst case
+measures **4.91**.
+
+The field is therefore less intense than the reference image. That is a
+deliberate trade: readable text is not negotiable against atmosphere, and
+the reference is a picture with no text on it.
+
+## Starfield: three shells instead of one
+
+The previous version was a single shell — one radius band, one size, one
+colour, uniformly distributed. That is precisely the "evenly distributed
+random dots" §1 rules out; uniform distribution gives the eye no structure
+to read as distance.
+
+Three things create depth now:
+
+- **Separate shells** at different radii, sizes, opacities and drift rates.
+  Near stars are larger, brighter and rotate fastest — the parallax between
+  shells is what actually sells the distance.
+- **Clustering.** Most stars are placed near one of seven seed points, so
+  the field has dense regions and empty ones.
+- **Per-vertex colour**, weighted toward cool with a few warm outliers, via
+  `vertexColors` — no custom shader needed.
+
+Brightness is squared rather than linear, so most stars are dim and a few
+are bright. A linear roll produces a field of uniformly middling dots.
+
+Plus 14 **hero stars**: larger, additive, slowly pulsing. Deliberately few —
+the whole effect of a hero star is that it is rare.
+
+## It got cheaper, not more expensive
+
+| | Before | After |
+|---|---|---|
+| Draw calls | 1 | 4 |
+| Points | 1,400 | ~714 |
+
+Four draw calls at this geometry count is negligible, and it buys per-shell
+control that one `Points` object cannot express without a custom shader.
+Fewer vertices, more visual structure.
+
+## Nebula
+
+Layered regions at varied size and blur, with a hot core inside the primary
+mass — a nebula of even density reads flat; a bright centre gives it shape.
+Magenta highlight per §2. One warm blob, because without an opposing
+temperature violets read as grey tinted lighter and darker.
+
+Two **dust lanes**: long, thin, rotated, and *subtracted* rather than added,
+so they read as obscuring matter rather than more glow.
+
+## What I could not check
+
+Everything above is measured, not seen. Colour relationships, whether the
+clustering reads as sky or as clumping, and whether the dust lanes are
+visible at all need your eyes.

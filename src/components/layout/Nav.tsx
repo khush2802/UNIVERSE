@@ -11,6 +11,7 @@ export const NAV_SECTIONS = [
   { id: 'universe', label: 'Universe' },
   { id: 'projects', label: 'Projects' },
   { id: 'skills', label: 'Skills' },
+  { id: 'about', label: 'About' },
   { id: 'journey', label: 'Journey' },
   { id: 'achievements', label: 'Achievements' },
   { id: 'contact', label: 'Contact' },

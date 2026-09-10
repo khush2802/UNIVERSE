@@ -1,0 +1,353 @@
+@import "tailwindcss";
+
+/* ============================================================
+   MY SOFTWARE UNIVERSE — design tokens
+   Single source of truth for palette, type and depth (spec §8, §9).
+   Change a value here and it changes everywhere.
+   ============================================================ */
+
+@theme {
+  /* --- Base surfaces -------------------------------------------------
+     Blue-shifted black, not a tinted grey. Each step up in elevation
+     gains a little more blue rather than just more lightness, so
+     stacked surfaces stay legible without borders doing all the work. */
+  --color-void: #05070e;
+  --color-deep: #080d1a;
+  --color-surface: #0c1424;
+  --color-raised: #121c30;
+  --color-line: #1b2740;
+  --color-line-strong: #2a3a5c;
+
+  /* --- Text --------------------------------------------------------- */
+  --color-ink: #eef3fb;
+  --color-ink-muted: #98a6c0;
+  --color-ink-faint: #62718e;
+
+  /* --- Domain accents ------------------------------------------------
+     These encode meaning: a colour identifies a domain, it is not
+     decoration. Never use a domain colour on content from another
+     domain. Each has a -dim variant for large fills and orbital
+     paths, where the full-strength value would overwhelm. */
+  --color-ai: #8b5cf6;
+  --color-ai-dim: #4c3a8a;
+  --color-web: #22d3ee;
+  --color-web-dim: #1a6f80;
+  --color-dsa: #2dd4bf;
+  --color-dsa-dim: #1c7a70;
+  --color-projects: #e8b45a;
+  --color-projects-dim: #8a6a34;
+  --color-achievements: #f0864a;
+  --color-achievements-dim: #8c4f2c;
+  --color-academics: #6d8dff;
+  --color-academics-dim: #3c4d8f;
+
+  /* --- Status --------------------------------------------------------
+     Confirmed / inferred / unknown (spec §27) get real colours, because
+     the honesty of the analyser is a feature and must be visible. */
+  --color-confirmed: #4ade80;
+  --color-inferred: #e8b45a;
+  --color-unknown: #62718e;
+  --color-danger: #f4626c;
+
+  /* --- Type ----------------------------------------------------------
+     Two families. Space Grotesk carries the personality — it has the
+     slightly mechanical, instrument-panel character the brief asks for.
+     Inter does the reading. */
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Modular scale, ratio 1.25, 16px base. */
+  --text-2xs: 0.694rem;
+  --text-xs: 0.8rem;
+  --text-sm: 0.9rem;
+  --text-base: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.563rem;
+  --text-2xl: 1.953rem;
+  --text-3xl: 2.441rem;
+  --text-4xl: 3.052rem;
+  --text-5xl: 3.815rem;
+  --text-6xl: 4.768rem;
+
+  /* --- Motion --------------------------------------------------------
+     Two durations only. Anything slower feels like the page is stalling;
+     anything faster reads as a glitch rather than a response. */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-quick: 180ms;
+  --dur-settled: 420ms;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Nav is fixed; anchor targets must clear it. */
+  scroll-padding-top: 6rem;
+  background-color: var(--color-void);
+}
+
+body {
+  background-color: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+/* Body copy stays under ~72 characters regardless of container width. */
+.measure {
+  max-width: 62ch;
+}
+
+.measure-tight {
+  max-width: 46ch;
+}
+
+/* ============================================================
+   Focus — visible, and the same everywhere (spec §61)
+   ============================================================ */
+
+:focus-visible {
+  outline: 2px solid var(--color-web);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Only remove the default ring where we've drawn our own. */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ============================================================
+   Surfaces
+   Deliberately NOT one card style for everything. Three tiers, each
+   with a different job — see components for which to use where.
+   ============================================================ */
+
+/* Tier 1: glass. Floating chrome only — nav, panels over the 3D scene. */
+.glass {
+  background-color: color-mix(in srgb, var(--color-deep) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid color-mix(in srgb, var(--color-line-strong) 60%, transparent);
+}
+
+/* Tier 2: panel. Structured content that sits in the page flow. */
+.panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+}
+
+/* Tier 3: plate. Data and diagrams. Squarer, flatter, more technical —
+   reads as an instrument readout rather than a marketing card. */
+.plate {
+  background-color: var(--color-deep);
+  border: 1px solid var(--color-line);
+  border-radius: 0.25rem;
+}
+
+/* Glow is gated to interaction. It is never an idle decoration (§8). */
+.glow-on-hover {
+  transition: box-shadow var(--dur-quick) var(--ease-out-soft),
+              border-color var(--dur-quick) var(--ease-out-soft);
+}
+
+.glow-on-hover:hover,
+.glow-on-hover:focus-visible {
+  border-color: color-mix(in srgb, var(--accent, var(--color-web)) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, var(--color-web)) 22%, transparent),
+              0 8px 40px -12px color-mix(in srgb, var(--accent, var(--color-web)) 45%, transparent);
+}
+
+/* ============================================================
+   Technical labels (spec §9)
+   Small, letter-spaced. Sentence case, not all caps — all-caps labels
+   above every heading is the single commonest generated-page tell, and
+   the tracking already does the work of marking these as metadata.
+   ============================================================ */
+
+.label-technical {
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.14em;
+  color: var(--color-ink-faint);
+  font-weight: 500;
+}
+
+/* ============================================================
+   Reduced motion (spec §52)
+   Information architecture is preserved; only movement is removed.
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   Hero entrance (spec §12)
+
+   CSS rather than GSAP, deliberately. This animation runs on the largest
+   contentful paint of the page; loading a JS animation library first
+   would delay the very thing it is animating. These run on the
+   compositor and need no JavaScript at all.
+
+   Total sequence ≈ 1.25s, inside the §12 target of 1–2s.
+   ============================================================ */
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes hero-planet-emerge {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.hero-item {
+  opacity: 0;
+  animation: hero-rise 620ms var(--ease-out-soft) forwards;
+}
+
+/* Staggered by ~90ms. Close enough to read as one movement, far enough
+   apart that the eye follows an order down the page. */
+.hero-1 { animation-delay: 340ms; }
+.hero-2 { animation-delay: 420ms; }
+.hero-3 { animation-delay: 520ms; }
+.hero-4 { animation-delay: 600ms; }
+.hero-5 { animation-delay: 690ms; }
+.hero-6 { animation-delay: 820ms; }
+
+/* The background fades in once, on first load — it belongs to the page,
+   not to any one section, so it never animates again on scroll. */
+.space-bg {
+  opacity: 0;
+  animation: hero-fade 1200ms ease-out 80ms forwards;
+}
+
+.hero-planet {
+  opacity: 0;
+  animation: hero-planet-emerge 1400ms var(--ease-out-soft) 180ms forwards;
+}
+
+/* With reduced motion the content is simply present. Not a faster
+   animation — no animation. The page arrives already composed. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-item,
+  .space-bg,
+  .hero-planet {
+    opacity: 1;
+    animation: none;
+    transform: none;
+  }
+
+  .hero-planet {
+    transform: translateX(-50%);
+  }
+}
+
+/* ============================================================
+   View transitions (spec §18)
+
+   The brief describes a cinematic hand-off from the universe into a
+   project. A full 3D fly-in would need one canvas persisting across
+   routes; the browser's own view transitions give the same continuity —
+   the card's image morphs into the detail page's — for a fraction of the
+   complexity.
+
+   CURRENTLY DORMANT. App Router navigations only run a view transition
+   when Next opts in, via `experimental.viewTransition`, which exists from
+   Next 15.2. This project is pinned to 15.1.6, so the flag was rejected
+   and has been removed rather than left in the config producing a warning
+   on every boot.
+
+   These rules and the paired `viewTransitionName` values are kept because
+   they cost nothing and are exactly what is needed the moment Next is
+   upgraded — the morph then starts working with no further changes.
+   ============================================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: var(--ease-out-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
+  }
+}
+
+/* ============================================================
+   Scrollbar — quiet, matches the surface stack
+   ============================================================ */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-void);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 6px;
+  border: 2px solid var(--color-void);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-line-strong);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-web) 30%, transparent);
+  color: var(--color-ink);
+}

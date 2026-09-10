@@ -11,6 +11,8 @@ interface Star {
   depth: number;
   /** Phase offset so stars don't twinkle in unison. */
   phase: number;
+  /** `r,g,b` string. Real starfields are not uniformly white. */
+  tint: string;
 }
 
 interface StarfieldProps {
@@ -84,16 +86,62 @@ export function Starfield({
       // Scale count by area so a phone doesn't draw a desktop's worth.
       const count = Math.round(density * ((width * height) / (1920 * 1080)));
 
+      /*
+       * Clustered, not uniform.
+       *
+       * Uniform scatter reads as noise — the eye finds no structure in it.
+       * Most stars are placed near one of a few seed points, leaving dense
+       * regions and empty ones, which is what a real sky looks like.
+       */
+      const clusterCount = 6;
+      const clusters = Array.from({ length: clusterCount }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        spread: Math.min(width, height) * (0.12 + Math.random() * 0.22),
+      }));
+
+      const tints = [
+        '198, 210, 255', // blue-white
+        '224, 228, 255', // white
+        '255, 247, 235', // warm white
+        '255, 224, 189', // amber
+        '219, 205, 255', // violet-white
+      ];
+      const tintWeights = [0.3, 0.34, 0.18, 0.08, 0.1];
+
+      const pickTint = () => {
+        let roll = Math.random();
+        for (let i = 0; i < tintWeights.length; i++) {
+          roll -= tintWeights[i];
+          if (roll <= 0) return tints[i];
+        }
+        return tints[1];
+      };
+
       stars = Array.from({ length: Math.max(count, 60) }, () => {
         const depth = Math.random();
+
+        let x: number;
+        let y: number;
+
+        if (Math.random() < 0.62) {
+          const cluster = clusters[Math.floor(Math.random() * clusterCount)];
+          x = cluster.x + (Math.random() + Math.random() - 1) * cluster.spread;
+          y = cluster.y + (Math.random() + Math.random() - 1) * cluster.spread;
+        } else {
+          x = Math.random() * width;
+          y = Math.random() * height;
+        }
+
         return {
-          x: Math.random() * width,
-          y: Math.random() * height,
-          // Near stars are larger. The 0.35 floor keeps distant ones from
-          // vanishing entirely on low-DPR screens.
-          radius: 0.35 + depth * 1.1,
+          x: ((x % width) + width) % width,
+          y: ((y % height) + height) % height,
+          // Squared, so most stars are small and a few are noticeably
+          // larger. A linear roll gives a field of uniformly middling dots.
+          radius: 0.3 + Math.pow(depth, 2) * 1.5,
           depth,
           phase: Math.random() * Math.PI * 2,
+          tint: pickTint(),
         };
       });
     };
@@ -127,7 +175,7 @@ export function Starfield({
 
         ctx.beginPath();
         ctx.arc(px, py, star.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(226, 236, 255, ${alpha.toFixed(3)})`;
+        ctx.fillStyle = `rgba(${star.tint}, ${alpha.toFixed(3)})`;
         ctx.fill();
       }
 

@@ -72,12 +72,12 @@ export function Hero() {
           )}
 
           {intro && (
-            <p className="hero-item hero-4 measure mt-4 text-[var(--color-ink-muted)]">
+            <p className="hero-item hero-5 measure mt-4 text-[var(--color-ink-muted)]">
               {intro}
             </p>
           )}
 
-          <div className="hero-item hero-5 mt-9 flex flex-wrap items-center gap-3">
+          <div className="hero-item hero-6 mt-9 flex flex-wrap items-center gap-3">
             <Link
               href="#universe"
               className="group inline-flex items-center gap-2 rounded-full bg-[var(--color-ink)] px-5 py-2.5 text-sm font-medium text-[var(--color-void)] transition-opacity hover:opacity-85"
@@ -103,7 +103,7 @@ export function Hero() {
             )}
           </div>
 
-          <p className="hero-item hero-6 mt-14 text-[length:var(--text-sm)] italic text-[var(--color-ink-faint)]">
+          <p className="hero-item hero-7 mt-14 text-[length:var(--text-sm)] italic text-[var(--color-ink-faint)]">
             {tagline}
           </p>
         </div>

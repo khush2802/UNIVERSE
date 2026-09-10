@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { Canvas } from '@react-three/fiber';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { useWebGLSupport } from '@/hooks/useWebGLSupport';
-import { DOMAINS, type DomainId } from '@/lib/domains';
+import { CATEGORY_TO_DOMAIN, DOMAINS, type DomainId } from '@/lib/domains';
 import { profile } from '@/data/profile';
 import { projectCounts } from '@/lib/universe';
 import type { Project } from '@/types/project';
@@ -28,7 +28,7 @@ const Scene = dynamic(
  */
 export function UniverseCanvas({ projects = [] }: { projects?: Project[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const labelRefs = useRef<Map<DomainId | '__star__', HTMLDivElement>>(new Map());
+  const labelRefs = useRef<Map<DomainId, HTMLDivElement>>(new Map());
 
   const [nearViewport, setNearViewport] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -132,10 +132,18 @@ export function UniverseCanvas({ projects = [] }: { projects?: Project[] }) {
     setSelectedId((current) => (current === id ? null : id));
   }, []);
 
-  // Selecting a project also focuses its domain, so the camera moves to
-  // the right neighbourhood and the moon isn't inspected in isolation.
+  /*
+   * Selecting a project focuses its domain too.
+   *
+   * Previously this only set `selectedProject`, which left `selectedId`
+   * null — so the camera never moved, the orbits never froze, and the moon
+   * you had just clicked kept travelling out of view while its panel sat
+   * open describing it. Setting the domain as well means the camera
+   * arrives at the right neighbourhood and everything holds still.
+   */
   const handleSelectProject = useCallback((project: Project) => {
     setSelectedProject(project);
+    setSelectedId(CATEGORY_TO_DOMAIN[project.category] ?? 'other');
   }, []);
 
   /**
@@ -193,23 +201,6 @@ export function UniverseCanvas({ projects = [] }: { projects?: Project[] }) {
                 stays crisp at any zoom and a screen reader can read it,
                 neither of which is true of text drawn into a canvas. */}
             <div className="pointer-events-none absolute inset-0" aria-hidden>
-              {/* Centre. Rendered as HTML rather than as a texture on the
-                  sphere: a letter painted onto a rotating ball would turn
-                  away from the viewer, and text on a canvas can't be
-                  selected or read by a screen reader. */}
-              <div
-                ref={(el) => {
-                  if (el) labelRefs.current.set('__star__', el);
-                  else labelRefs.current.delete('__star__');
-                }}
-                className="absolute left-0 top-0 text-center transition-opacity duration-200"
-                style={{ opacity: 0 }}
-              >
-                <span className="block font-[family-name:var(--font-display)] text-3xl font-bold text-[#3a2a12] mix-blend-multiply">
-                  K
-                </span>
-              </div>
-
               {Object.values(DOMAINS).map((domain) => (
                 <div
                   key={domain.id}

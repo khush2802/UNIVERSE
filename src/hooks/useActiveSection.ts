@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 /**
  * Reports which section is currently in view (spec §10, active indicator).
@@ -17,8 +17,25 @@ import { useEffect, useState } from 'react';
 export function useActiveSection(sectionIds: string[]): string | null {
   const [activeId, setActiveId] = useState<string | null>(sectionIds[0] ?? null);
 
+  /*
+   * Depend on the ids' *contents*, not the array's identity.
+   *
+   * A caller that builds its list inline — `sections.map(s => s.id)` —
+   * hands over a new array on every render. With the array itself as the
+   * dependency, the effect tore down and rebuilt the observer each render,
+   * the fresh observer fired immediately, that called `setActiveId`, and
+   * the resulting render produced another new array. A render loop.
+   *
+   * Joining to a string means the effect only re-runs when the set of
+   * sections actually changes, which is what it was always meant to do.
+   * Fixing it here rather than at each call site means no future caller
+   * can reintroduce it by passing an inline array.
+   */
+  const key = sectionIds.join('|');
+  const ids = useMemo(() => key.split('|').filter(Boolean), [key]);
+
   useEffect(() => {
-    if (sectionIds.length === 0) return;
+    if (ids.length === 0) return;
 
     const visible = new Map<string, number>();
 
@@ -37,7 +54,7 @@ export function useActiveSection(sectionIds: string[]): string | null {
         // Whichever qualifying section is furthest up the document wins,
         // so scrolling down never briefly highlights the section below.
         let winner: string | null = null;
-        for (const id of sectionIds) {
+        for (const id of ids) {
           if (visible.has(id)) {
             winner = id;
             break;
@@ -52,14 +69,14 @@ export function useActiveSection(sectionIds: string[]): string | null {
       },
     );
 
-    const elements = sectionIds
+    const elements = ids
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => el !== null);
 
     elements.forEach((el) => observer.observe(el));
 
     return () => observer.disconnect();
-  }, [sectionIds]);
+  }, [ids]);
 
   return activeId;
 }

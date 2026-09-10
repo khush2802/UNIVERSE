@@ -8,20 +8,40 @@
 
 @theme {
   /* --- Base surfaces -------------------------------------------------
-     Blue-shifted black, not a tinted grey. Each step up in elevation
-     gains a little more blue rather than just more lightness, so
-     stacked surfaces stay legible without borders doing all the work. */
-  --color-void: #05070e;
-  --color-deep: #080d1a;
-  --color-surface: #0c1424;
-  --color-raised: #121c30;
-  --color-line: #1b2740;
-  --color-line-strong: #2a3a5c;
+     Indigo, not navy. Every step up in elevation gains violet rather than
+     just lightness, so stacked surfaces separate by hue as well as by
+     brightness and borders don't have to do all the work.
 
-  /* --- Text --------------------------------------------------------- */
-  --color-ink: #eef3fb;
-  --color-ink-muted: #98a6c0;
-  --color-ink-faint: #62718e;
+     Hue is held at roughly 255° throughout. A base that drifts between
+     blue and purple across its steps reads as inconsistent rather than
+     as one material at different depths. */
+  --color-void: #06050f;
+  --color-deep: #0b0918;
+  --color-surface: #120e26;
+  --color-raised: #1a1436;
+  --color-line: #292051;
+  --color-line-strong: #3d3172;
+
+  /* --- Nebula ---------------------------------------------------------
+     Kept as variables so the background can be retuned in one place
+     rather than by hunting hex values through component classes. */
+  --color-nebula-core: #8b5cf6;
+  --color-nebula-warm: #c084fc;
+  --color-nebula-magenta: #d946a6;
+  --color-nebula-cool: #4f46e5;
+  --color-nebula-deep: #2e1065;
+
+  /* --- Text ------------------------------------------------------------
+     Primary is very slightly violet-tinted rather than pure white —
+     against an indigo field, true white reads as a cold hole punched in
+     the page. Secondary is lavender, which is what §11 asks for and also
+     what keeps it legible over the nebula. */
+  --color-ink: #f3f0ff;
+  --color-ink-muted: #b4a8d8;
+  /* Measured, not chosen by eye: at #7d70a8 this scored 3.97 against
+     `--color-raised`, under the 4.5 threshold. #8d80bb clears 4.5 on
+     every surface in the stack. */
+  --color-ink-faint: #8d80bb;
 
   /* --- Domain accents ------------------------------------------------
      These encode meaning: a colour identifies a domain, it is not
@@ -139,23 +159,30 @@ h1, h2, h3, h4 {
    with a different job — see components for which to use where.
    ============================================================ */
 
-/* Tier 1: glass. Floating chrome only — nav, panels over the 3D scene. */
+/* Tier 1: glass. Floating chrome only — nav, panels over the 3D scene.
+   Saturation is boosted in the backdrop filter so the nebula behind it
+   keeps its colour through the blur; a plain blur greys it out. */
 .glass {
-  background-color: color-mix(in srgb, var(--color-deep) 72%, transparent);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid color-mix(in srgb, var(--color-line-strong) 60%, transparent);
+  background-color: color-mix(in srgb, var(--color-deep) 66%, transparent);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid color-mix(in srgb, var(--color-nebula-core) 22%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-nebula-warm) 10%, transparent),
+    0 8px 40px -20px rgb(0 0 0 / 0.8);
 }
 
-/* Tier 2: panel. Structured content that sits in the page flow. */
+/* Tier 2: panel. Structured content in the page flow. Opaque, because
+   content that scrolls past other content should not show it through. */
 .panel {
   background-color: var(--color-surface);
   border: 1px solid var(--color-line);
   border-radius: 0.75rem;
 }
 
-/* Tier 3: plate. Data and diagrams. Squarer, flatter, more technical —
-   reads as an instrument readout rather than a marketing card. */
+/* Tier 3: plate. Data, diagrams, technical readouts. Squarer and flatter
+   than a panel so it reads as an instrument rather than a card — the
+   distinction is what stops every surface on the site looking alike. */
 .plate {
   background-color: var(--color-deep);
   border: 1px solid var(--color-line);
@@ -258,8 +285,9 @@ h1, h2, h3, h4 {
 .hero-2 { animation-delay: 420ms; }
 .hero-3 { animation-delay: 520ms; }
 .hero-4 { animation-delay: 600ms; }
-.hero-5 { animation-delay: 690ms; }
-.hero-6 { animation-delay: 820ms; }
+.hero-5 { animation-delay: 680ms; }
+.hero-6 { animation-delay: 770ms; }
+.hero-7 { animation-delay: 900ms; }
 
 /* The background fades in once, on first load — it belongs to the page,
    not to any one section, so it never animates again on scroll. */
@@ -286,6 +314,41 @@ h1, h2, h3, h4 {
 
   .hero-planet {
     transform: translateX(-50%);
+  }
+}
+
+/* ============================================================
+   View transitions (spec §18)
+
+   The brief describes a cinematic hand-off from the universe into a
+   project. A full 3D fly-in would need one canvas persisting across
+   routes; the browser's own view transitions give the same continuity —
+   the card's image morphs into the detail page's — for a fraction of the
+   complexity.
+
+   CURRENTLY DORMANT. App Router navigations only run a view transition
+   when Next opts in, via `experimental.viewTransition`, which exists from
+   Next 15.2. This project is pinned to 15.1.6, so the flag was rejected
+   and has been removed rather than left in the config producing a warning
+   on every boot.
+
+   These rules and the paired `viewTransitionName` values are kept because
+   they cost nothing and are exactly what is needed the moment Next is
+   upgraded — the morph then starts working with no further changes.
+   ============================================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: var(--ease-out-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
   }
 }
 
