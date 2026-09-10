@@ -29,27 +29,39 @@ export interface DataSource {
 /**
  * What the site can show.
  *
- * Two sources, with different rules:
+ * Two sources with different rules:
  *
  * - `seedProjects` — Khush's real repositories, carrying only facts GitHub
  *   states directly. Safe to publish, so they render everywhere.
  * - `fixtureProjects` — synthetic records that exist to exercise every
- *   data-layer state while chunks 08–09 are built. Never publishable.
+ *   data-layer state. Never publishable.
  *
- * Fixtures are stripped from production builds, so a forgotten fixture
- * shows up as a shorter grid rather than as fake projects on Khush's
- * portfolio. Failing visibly and safely beats failing quietly and
- * dishonestly.
+ * ── Controlling fixtures ──────────────────────────────────────────────
+ *
+ * `NEXT_PUBLIC_SHOW_FIXTURES` in `.env.local`:
+ *
+ *   unset or "false" in a production build  → fixtures hidden
+ *   unset in development                    → fixtures shown
+ *   "false"                                 → hidden, in either mode
+ *   "true"                                  → shown, in either mode
+ *
+ * Set it to "false" to see exactly what the deployed site will show,
+ * without needing a production build to check.
+ *
+ * The default is deliberately asymmetric. Fixtures are needed constantly
+ * while building and must never reach a live site, so the safe state is
+ * the one that requires no action: forgetting to configure anything gives
+ * you fixtures in dev and none in production.
  */
 function visibleProjects(): Project[] {
+  const flag = process.env.NEXT_PUBLIC_SHOW_FIXTURES;
+
+  if (flag === 'false') return seedProjects;
+  if (flag === 'true') return [...seedProjects, ...fixtureProjects];
+
+  // Unset: fall back to the build mode.
   const isProduction = process.env.NODE_ENV === 'production';
-  const allowFixtures = process.env.NEXT_PUBLIC_ALLOW_FIXTURES === 'true';
-
-  if (isProduction && !allowFixtures) {
-    return seedProjects;
-  }
-
-  return [...seedProjects, ...fixtureProjects];
+  return isProduction ? seedProjects : [...seedProjects, ...fixtureProjects];
 }
 
 function matches(project: Project, query: ProjectQuery): boolean {

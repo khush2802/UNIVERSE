@@ -76,7 +76,7 @@ export function Nav() {
           className={clsx(
             'mx-auto flex max-w-6xl items-center justify-between gap-6 rounded-full px-5 py-2.5 transition-all duration-[var(--dur-settled)] ease-[var(--ease-out-soft)]',
             scrolled
-              ? 'glass mx-4 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.9)]'
+              ? 'glass mx-4'
               : 'mx-4 border border-transparent bg-transparent',
           )}
         >
@@ -109,7 +109,7 @@ export function Nav() {
                     {isActive && (
                       <span
                         aria-hidden
-                        className="absolute inset-x-3 -bottom-0.5 h-px bg-[var(--color-web)]"
+                        className="absolute inset-x-3 -bottom-0.5 h-px bg-[linear-gradient(90deg,transparent,var(--color-nebula-core),transparent)]"
                       />
                     )}
                   </button>
@@ -124,7 +124,7 @@ export function Nav() {
                 href={profile.social.resume}
                 target="_blank"
                 rel="noreferrer"
-                className="hidden items-center gap-1.5 rounded-full border border-[var(--color-line-strong)] px-3.5 py-1.5 text-sm text-[var(--color-ink-muted)] transition-colors hover:border-[var(--color-web)] hover:text-[var(--color-ink)] sm:inline-flex"
+                className="hidden items-center gap-1.5 rounded-full border border-[var(--color-line-strong)] px-3.5 py-1.5 text-sm text-[var(--color-ink-muted)] transition-colors hover:border-[var(--color-nebula-core)] hover:text-[var(--color-ink)] sm:inline-flex"
               >
                 <FileText size={14} aria-hidden />
                 Resume

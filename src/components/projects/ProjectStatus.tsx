@@ -18,7 +18,7 @@ export function StatusBanner({ project }: { project: Project }) {
     },
     analyzing: {
       icon: RefreshCw,
-      tone: 'var(--color-web)',
+      tone: 'var(--color-nebula-core)',
       title: 'Analysis in progress',
       body: 'The repository is being read now. Details will fill in when it finishes.',
     },

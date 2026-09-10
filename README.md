@@ -1700,3 +1700,282 @@ so they read as obscuring matter rather than more glow.
 Everything above is measured, not seen. Colour relationships, whether the
 clustering reads as sky or as clumping, and whether the dust lanes are
 visible at all need your eyes.
+
+---
+
+# Delivery B — star and planets
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/components/universe/AsteroidBelt.tsx` | Instanced debris fields. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/lib/domains.ts` | `planetType` on every domain. |
+| `src/lib/planetTextures.ts` | Four surface generators + cloud layer. |
+| `src/components/universe/Scene.tsx` | Type-aware materials, rebuilt star, belts. |
+| `src/lib/universe.ts` | System widened to 5.0. |
+
+## Four planet types, not one with different hues
+
+| Domain | Type | Rings | Clouds | Rim |
+|---|---|---|---|---|
+| AI & ML | gas giant | yes | — | 0.26 |
+| Web | ice giant | yes | — | 0.34 |
+| DSA | terrestrial | — | yes | 0.26 |
+| Other | gas giant | yes | — | 0.26 |
+| Achievements | rocky | — | — | 0.08 |
+| Academics | rocky | — | — | 0.08 |
+
+**Gas giant** — latitude bands with undulating edges and horizontal storms.
+
+**Ice giant** — deliberately far smoother. Uranus and Neptune show almost no
+banding, and giving an ice giant Jupiter's stripes is the commonest way
+these end up looking identical.
+
+**Terrestrial** — ocean, continents at three overlapping scales, arid
+interiors, ice caps, and a separate cloud shell rotating ~40% faster than
+the surface. That relative drift is most of what makes a planet look alive;
+clouds baked into the surface texture turn in lockstep and read as markings.
+
+**Rocky** — cratered and airless. Craters get a bright rim slightly offset
+from a dark floor, which is what makes them read as depressions rather than
+stains. No emissive map at all: an airless body genuinely is black on its
+night side.
+
+Material properties differ too — ice is smoother and more reflective, rock
+is matte, gas is uniformly rough. A single roughness value across all six is
+what made them look like one planet recoloured.
+
+**On the terrestrial planet:** it will not look like Earth. Recognisable
+Earth needs a real elevation map. This produces a plausible habitable
+planet, which is what the composition needs.
+
+## The system was widened, and here is why
+
+At the old scale, AI's ring reached 3.67 units from centre while the star's
+outer corona sits at 3.85 — the ring would have passed through the star's
+glow every revolution. The reference makes AI the signature ringed planet,
+so the system moved out rather than the ring coming off.
+
+`BASE_ORBIT_RADIUS` 4.6 → 5.0, and the camera pulled back to `[0, 11, 28]`,
+because at the old position the visible half-width was 15.45 against an
+Academics orbit now at 16.75 — it would have been clipped off the frame.
+
+Every neighbouring pair was re-checked. Tightest is AI+Web: rings spanning
+1.86 against a 2.25 gap.
+
+## Asteroid belts
+
+One `InstancedMesh` each — one draw call for hundreds of rocks. §13 asks for
+instancing and this is the case that needs it.
+
+Radius uses a triangular distribution so rocks concentrate on the centre
+line and thin at the edges; a flat distribution gives hard edges and reads
+as a drawn ring.
+
+**Placement took two attempts.** My first put a belt at 10.75 ± 0.62, which
+ran straight through Other's ring system (10.92–13.08). I mapped every
+planet's full reach — sphere plus rings — and found the real gaps. All the
+inner ones are under 0.7 wide, too narrow for a belt to read as anything but
+a line, so the belts sit at 15.63 and 19.2. The outer one runs past the
+frame edge on purpose.
+
+## The star
+
+Corona flares as a points cloud on a thin shell just outside the surface,
+clustered close with a long tail outward — a uniform shell reads as a second
+sphere rather than as emission. Four stacked additive shells, the outermost
+picking up the environment's violet so the star sits *inside* the nebula
+rather than on top of it. `toneMapped={false}` on the core so it stays hot
+rather than being pulled down with the rest of the scene.
+
+Still no bloom, per §13.
+
+## Budget
+
+~49 draw calls total. The belts add 2 for 760 rocks.
+
+## What I could not check
+
+All of the above is measured geometry, not seen output. Whether the
+continents read as continents, whether the ice giant is too smooth, whether
+the flares look like flares — that needs your eyes.
+
+---
+
+# Delivery C — star, orbits, camera
+
+**Requires `npm install`** — GSAP added.
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/lib/planetTextures.ts` | Glow sprite + star turbulence layer. |
+| `src/components/universe/Scene.tsx` | Star rebuilt, orbits reworked, GSAP entrance. |
+| `package.json` | gsap. |
+
+## The specks around the star are gone
+
+You were right, and it was a bad call on my part. I built the corona as a
+points cloud, and discrete points near a star read as **debris**, not
+emission — the star looked like it had gravel orbiting it.
+
+Replaced with two things that actually produce light:
+
+**A two-layer surface.** The base texture and a sparser turbulence layer
+rotate at different rates on nested spheres. Where they overlap they
+brighten; where they separate they don't. Because they drift apart
+continuously, the bright regions move and change shape — which is what
+makes a star look like it is burning. One static texture, however detailed,
+rotates rigidly and reads as a painted ball.
+
+**A sprite halo instead of nested shells.** Back-side spheres were also the
+wrong tool: each has a hard edge where its geometry ends, so stacking them
+produces visible steps — concentric rings of brightness rather than a
+continuous falloff. Two camera-facing sprites with gradient textures have no
+edges at all, and being camera-facing they never show their own geometry
+from an angle.
+
+The outer halo fades into violet so the star sits *inside* the nebula rather
+than on top of it.
+
+## Orbits no longer dominate
+
+§6 says the orbit lines can take over the scene, and a flat opacity is
+exactly why: the outermost ring is the longest line on screen, so at equal
+opacity it carries more visual weight than anything else in the composition.
+
+Two changes:
+
+**Distance-graded opacity.** Near orbits read clearly, far ones settle back —
+which is also what atmospheric perspective does in a photograph.
+
+| | resting | selected |
+|---|---|---|
+| AI (r 5.00) | 0.152 | 0.492 |
+| Academics (r 16.75) | 0.110 | 0.355 |
+
+Previously all six sat at a flat 0.30.
+
+**Indigo instead of six accents.** Six saturated accent rings competed with
+the planets they belong to. A common indigo, tinted 25% toward each domain,
+lets the planets carry the colour and the orbits carry only the structure.
+
+Selecting a planet animates its orbit brighter — eased, not switched, so it
+reads as a response rather than a state change.
+
+## GSAP, only where it earns its place
+
+§9 is explicit that GSAP should not replace every animation. It is used for
+exactly one thing here: the **camera entrance**.
+
+That is the case a `lerp` genuinely cannot express. A lerp only ever means
+"approach the current target" — it has no notion of a beginning, a duration
+or a curve. The entrance needs all three: start high and far, travel for
+2.4 seconds on `power3.out`, settle inward and down so it reads as arriving
+at a system rather than sliding across one.
+
+Everything else stays as it was: planet rotation, orbital motion and
+starfield drift in `useFrame`, UI transitions in CSS, and the focus camera
+on its per-frame follow, which is right because its target moves.
+
+An `entranceDone` flag gates the follow logic. Without it the rig would
+fight the tween every frame and the camera would arrive instantly.
+
+Under reduced motion there is no flight at all — the camera is simply
+already at home (§14).
+
+## Regression caught during this delivery
+
+Rewriting `OrbitRing` replaced a span of the file that also contained
+`PlanetRing`, deleting it. Every planet would have lost its rings while
+still referencing a component that no longer existed — a build failure, and
+before that a silent loss of the feature Delivery B was largely about.
+
+Found by the unused-import check: `createRingTexture` and
+`radialiseRingUVs` suddenly had no callers, which is only possible if the
+thing that called them is gone. That check has now caught two structural
+deletions of this kind, which is why it runs after every delivery.
+
+---
+
+# Delivery D — labels, UI, performance, accessibility
+
+No new dependencies.
+
+## Added
+
+| File | Why |
+|---|---|
+| `src/components/universe/PlanetLabel.tsx` | Glass label cards with icons. |
+
+## Changed
+
+| File | Why |
+|---|---|
+| `src/components/universe/UniverseCanvas.tsx` | Renders label cards. |
+| `src/components/layout/Nav.tsx` | Purple glass treatment. |
+| `src/app/globals.css` | Focus ring, selection, glow → environment accent. |
+| 7 component files | Generic accents moved off the Web domain colour. |
+
+## Label cards
+
+Icon, domain name, project count, and a tagline — matching the reference.
+Offset up and right of the planet rather than centred on it, so a card never
+covers the thing it names.
+
+Background is heavier than the page's `.glass`, because these sit over the
+brightest part of the scene rather than over the page. Checked against the
+worst case — a card directly over the star's halo — where the title measures
+10.5 and the tagline 5.4.
+
+They stay `aria-hidden`. These are visual anchors for a canvas a screen
+reader cannot see, and the button list below the scene is the real focusable
+control surface. Exposing both would make a keyboard user tab through every
+domain twice.
+
+## An inconsistency worth naming
+
+Seven files were using `--color-web` as a **generic** interaction accent —
+hover borders, a selected architecture node, a foreign-key marker, the
+"analysing" status. None of them meant the Web domain.
+
+That quietly undermined the argument I have been making since Delivery A: if
+the colour identifying Web also means "you are hovering something", it
+identifies nothing. Generic feedback now uses the environment accent, and
+domain colours are reserved for domains. `--color-web` appears in exactly one
+place: the Web domain's definition.
+
+## Performance
+
+**Texture memory: 5.56 MB total.** The largest single line is the six planet
+surfaces at 3 MB. For comparison, the 1024×512 version I started with would
+have been 24 MB for less on screen than a pixel of detail.
+
+**48 draw calls.** The 760 asteroids account for 2 of them — as individual
+meshes they would have been 760.
+
+## Accessibility
+
+- Every domain reachable by keyboard through the button list
+- `aria-pressed` on selection controls
+- Global `:focus-visible` ring, now in the environment accent
+- Contrast measured on every surface and on the label cards
+- Reduced motion: no camera flight, no orbital motion, halved asteroid
+  counts, static starfield
+- Mobile gate unchanged — WebGL still never mounts below 768px
+
+## What still needs your eyes
+
+Everything visual. Whether the label cards crowd each other when planets
+pass close on the inner orbits is the specific thing I would check first —
+that is a collision I can't compute, because it depends on where the planets
+happen to be at the moment you look.

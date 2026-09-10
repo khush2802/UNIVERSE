@@ -3,17 +3,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
-import type { DomainId } from '@/lib/domains';
+import gsap from 'gsap';
+import type { DomainId, PlanetType } from '@/lib/domains';
 import type { Project } from '@/types/project';
 import {
+  createGlowSprite,
   createPointSprite,
   createStarTexture,
+  createStarTurbulence,
+  createCloudTexture,
   createPlanetEmissiveTexture,
   createPlanetTexture,
   createRingTexture,
   radialiseRingUVs,
 } from '@/lib/planetTextures';
 import { hashString } from '@/lib/hash';
+import { AsteroidBelt } from './AsteroidBelt';
 import {
   STAR_RADIUS,
   domainColors,
@@ -353,16 +358,20 @@ function OrbitRing({
   radius,
   inclination,
   color,
+  emphasis = 0,
 }: {
   radius: number;
   inclination: number;
   color: string;
+  /** 0 = resting, 1 = this orbit's planet is selected. */
+  emphasis?: number;
 }) {
-  // Memoised as a whole. Building the THREE.Line inline would allocate a
-  // new geometry, material and object on every render, leaking GPU
-  // resources each time the parent re-renders.
+  /*
+   * Memoised as a whole. Building the line inline would allocate a new
+   * geometry, material and object on every render.
+   */
   const line = useMemo(() => {
-    const segments = 128;
+    const segments = 160;
     const points: THREE.Vector3[] = [];
 
     for (let i = 0; i <= segments; i++) {
@@ -372,14 +381,42 @@ function OrbitRing({
     }
 
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+    /*
+     * Orbits recede with distance.
+     *
+     * §6 says the orbit lines can dominate the scene, and a fixed opacity
+     * is why: the outermost ring is the longest line on screen, so at
+     * equal opacity it carries the most visual weight of anything in the
+     * composition. Fading them with radius means the near orbits read
+     * clearly and the far ones settle into the background, which is also
+     * what atmospheric perspective does in a real photograph.
+     *
+     * Indigo rather than the domain accent. Six saturated accent rings
+     * competed with the planets they belong to; a common indigo lets the
+     * planets carry the colour and the orbits carry only the structure.
+     */
+    const distanceFade = 1 - Math.min(radius / 26, 1) * 0.55;
+
     const material = new THREE.LineBasicMaterial({
-      color: new THREE.Color(color),
+      color: new THREE.Color('#7c5cc4').lerp(new THREE.Color(color), 0.25),
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.17 * distanceFade,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
 
     return new THREE.Line(geometry, material);
   }, [radius, inclination, color]);
+
+  // Emphasis is animated rather than switched, so an orbit brightening on
+  // selection reads as a response instead of a state change.
+  useFrame((_, delta) => {
+    const material = line.material as THREE.LineBasicMaterial;
+    const distanceFade = 1 - Math.min(radius / 26, 1) * 0.55;
+    const target = (emphasis > 0 ? 0.55 : 0.17) * distanceFade;
+    material.opacity += (target - material.opacity) * Math.min(delta * 5, 1);
+  });
 
   // Dispose on unmount — R3F only auto-disposes objects it created itself.
   useEffect(() => {
@@ -389,7 +426,7 @@ function OrbitRing({
     };
   }, [line]);
 
-  return <primitive object={line} />;
+  return <primitive object={line} raycast={() => null} />;
 }
 
 /* ================================================================== *
@@ -399,10 +436,12 @@ function OrbitRing({
 /**
  * A ring system.
  *
- * The reference image's contrast comes from an almost unlit sphere beside
- * a ring far brighter than it — the ring is the light source in that
- * composition. So this is additively blended and deliberately brighter
- * than the planet it belongs to.
+ * Rings are matter, not light. Earlier versions used additive blending,
+ * which makes them glow and — at high alpha — clip to white. Every
+ * reference shows rings as *material*: bands of dust and ice, brighter
+ * than the planet but plainly solid. Normal blending lets a ring occlude
+ * the planet where it passes in front, which additive can never do because
+ * it only ever brightens.
  *
  * `DoubleSide` matters: seen from below, a single-sided ring vanishes
  * exactly when the orbit carries the planet to the far side of the star.
@@ -420,10 +459,8 @@ function PlanetRing({
 }) {
   const ring = useMemo(() => {
     /*
-     * Proportions taken from the references: the ring system reads as
-     * roughly as wide again as the planet on each side, and it starts
-     * close to the surface. The earlier 1.5–2.6 made a thin hoop floating
-     * well clear of the planet, which is not what any of them look like.
+     * Proportions from the references: the system reads as roughly as wide
+     * again as the planet on each side, starting close to the surface.
      */
     const inner = planetSize * 1.28;
     const outer = planetSize * 2.35;
@@ -435,9 +472,6 @@ function PlanetRing({
       map: createRingTexture(color, seed),
       side: THREE.DoubleSide,
       transparent: true,
-      // Normal blending, not additive. Rings are matter, not light — they
-      // should occlude the planet where they pass in front of it, which
-      // additive blending can never do because it only ever brightens.
       depthWrite: false,
       opacity: 0.95,
     });
@@ -469,93 +503,117 @@ function PlanetRing({
 
 function CentralStar({ reduced }: { reduced: boolean }) {
   const coreRef = useRef<THREE.Mesh>(null);
-  const surface = useMemo(() => createStarTexture(), []);
+  const turbulenceRef = useRef<THREE.Mesh>(null);
+  const glowRef = useRef<THREE.Sprite>(null);
+  const outerGlowRef = useRef<THREE.Sprite>(null);
 
-  useEffect(() => () => surface.dispose(), [surface]);
-  const innerGlowRef = useRef<THREE.Mesh>(null);
-  const coronaRef = useRef<THREE.Mesh>(null);
+  const surface = useMemo(() => createStarTexture(), []);
+  const turbulence = useMemo(() => createStarTurbulence(), []);
+  const innerGlow = useMemo(() => createGlowSprite('#fff0cf', '#ff9c3c'), []);
+  const outerGlow = useMemo(() => createGlowSprite('#ffb15a', '#b06bd8'), []);
+
+  useEffect(() => {
+    return () => {
+      surface.dispose();
+      turbulence.dispose();
+      innerGlow.dispose();
+      outerGlow.dispose();
+    };
+  }, [surface, turbulence, innerGlow, outerGlow]);
 
   useFrame(({ clock }) => {
     if (reduced) return;
     const t = clock.getElapsedTime();
 
-    if (coreRef.current) coreRef.current.rotation.y = t * 0.04;
-
-    // Two glow shells breathing slightly out of phase. In phase they read
-    // as one object scaling; offset, they read as light.
-    if (innerGlowRef.current) {
-      innerGlowRef.current.scale.setScalar(1 + Math.sin(t * 0.6) * 0.03);
+    /*
+     * Two surface layers turning at different rates.
+     *
+     * Where they overlap they brighten; where they separate they don't.
+     * Because they drift apart continuously the bright regions move and
+     * change shape, which is what makes the star look like it is burning.
+     * A single texture, however detailed, rotates rigidly and reads as a
+     * painted ball.
+     */
+    if (coreRef.current) coreRef.current.rotation.y = t * 0.028;
+    if (turbulenceRef.current) {
+      turbulenceRef.current.rotation.y = -t * 0.045;
+      turbulenceRef.current.rotation.x = Math.sin(t * 0.12) * 0.06;
     }
-    if (coronaRef.current) {
-      coronaRef.current.scale.setScalar(1 + Math.sin(t * 0.42 + 1.1) * 0.045);
+
+    // Halo breathes gently, and the two sprites are out of phase — in
+    // phase they read as one object scaling rather than as light.
+    if (glowRef.current) {
+      const pulse = STAR_RADIUS * 7.4 * (1 + Math.sin(t * 0.55) * 0.022);
+      glowRef.current.scale.setScalar(pulse);
+    }
+    if (outerGlowRef.current) {
+      const pulse = STAR_RADIUS * 13 * (1 + Math.sin(t * 0.37 + 1.4) * 0.03);
+      outerGlowRef.current.scale.setScalar(pulse);
     }
   });
 
   return (
     <group>
       {/* Core. `meshBasicMaterial` ignores lighting, which is right — the
-          star is the light source, so it should never be shaded by it. */}
-      {/*
-        Textured, like the planets. A single flat colour renders as a disc
-        no matter how much glow surrounds it — granulation is what makes
-        the surface read as a surface. `meshBasicMaterial` still, because
-        the star is the light source and must never be shaded by its own
-        light.
-      */}
+          star is the light source and must never be shaded by it.
+          `toneMapped={false}` keeps it hot rather than being pulled down
+          with the rest of the scene. */}
       <mesh ref={coreRef}>
         <sphereGeometry args={[STAR_RADIUS, 64, 64]} />
-        <meshBasicMaterial map={surface} color="#ffffff" />
+        <meshBasicMaterial map={surface} toneMapped={false} />
+      </mesh>
+
+      <mesh ref={turbulenceRef} scale={1.012} raycast={() => null}>
+        <sphereGeometry args={[STAR_RADIUS, 48, 48]} />
+        <meshBasicMaterial
+          map={turbulence}
+          transparent
+          opacity={0.85}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+        />
       </mesh>
 
       {/*
-        Brightness comes from stacked transparent shells rather than a
-        bloom pass. §50 asks for minimal post-processing, and bloom is an
-        extra full-screen render target for every frame — expensive on the
-        mobile GPUs this most needs to stay smooth on. Three additive
-        shells cost almost nothing and read as glow at any resolution.
+        The halo is two camera-facing sprites, not nested spheres.
+
+        Back-side spheres were the wrong tool: each shell has a hard edge
+        where its geometry ends, so stacking them produces visible steps —
+        concentric rings of brightness instead of a continuous falloff. A
+        sprite with a gradient has no edges at all, and being
+        camera-facing it never shows its own geometry from an angle.
+
+        The outer one fades into violet so the star sits inside the nebula
+        rather than on top of it.
       */}
-      <mesh ref={innerGlowRef} raycast={() => null}>
-        <sphereGeometry args={[STAR_RADIUS * 1.22, 32, 32]} />
-        <meshBasicMaterial
-          color="#ffc978"
+      <sprite ref={glowRef} scale={STAR_RADIUS * 7.4}>
+        <spriteMaterial
+          map={innerGlow}
+          transparent
+          opacity={0.72}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+          toneMapped={false}
+        />
+      </sprite>
+
+      <sprite ref={outerGlowRef} scale={STAR_RADIUS * 13}>
+        <spriteMaterial
+          map={outerGlow}
           transparent
           opacity={0.34}
-          side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
           depthWrite={false}
         />
-      </mesh>
+      </sprite>
 
-      <mesh ref={coronaRef} raycast={() => null}>
-        <sphereGeometry args={[STAR_RADIUS * 1.75, 32, 32]} />
-        <meshBasicMaterial
-          color="#f5a742"
-          transparent
-          opacity={0.16}
-          side={THREE.BackSide}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-
-      <mesh raycast={() => null}>
-        <sphereGeometry args={[STAR_RADIUS * 2.2, 24, 24]} />
-        <meshBasicMaterial
-          color="#e8853a"
-          transparent
-          opacity={0.07}
-          side={THREE.BackSide}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-
-      {/* The only light in the scene. Planets are lit from the centre
-          outward, which is what makes this read as a system. */}
+      {/* The only light in the scene, so planets are lit from the centre
+          outward — which is what makes this read as a system. */}
       <pointLight
         position={[0, 0, 0]}
-        intensity={260}
-        distance={90}
+        intensity={340}
+        distance={110}
         decay={2}
         color="#ffd9a0"
       />
@@ -586,6 +644,8 @@ interface PlanetProps {
   register: (id: DomainId, group: THREE.Group | null) => void;
   /** Position in the orbit order, 0 = innermost. Decides ring eligibility. */
   orbitIndex: number;
+  /** Archetype: drives surface generation and material treatment. */
+  planetType: PlanetType;
   children?: React.ReactNode;
 }
 
@@ -605,6 +665,7 @@ function DomainPlanet({
   onSelect,
   register,
   orbitIndex,
+  planetType,
   children,
 }: PlanetProps) {
   const groupRef = useRef<THREE.Group>(null);
@@ -613,6 +674,7 @@ function DomainPlanet({
   const bodyRef = useRef<THREE.Group>(null);
   const meshRef = useRef<THREE.Mesh>(null);
   const atmosphereRef = useRef<THREE.Mesh>(null);
+  const cloudRef = useRef<THREE.Mesh>(null);
   const angleRef = useRef(angle);
   const scaleRef = useRef(1);
 
@@ -621,20 +683,43 @@ function DomainPlanet({
   // Surface and glow maps, generated once per planet and disposed with it.
   const surfaceSeed = useMemo(() => hashString(`${id}:surface`), [id]);
   const surfaceMap = useMemo(
-    () => createPlanetTexture(color, surfaceSeed),
-    [color, surfaceSeed],
+    () => createPlanetTexture(color, surfaceSeed, planetType),
+    [color, surfaceSeed, planetType],
   );
   const emissiveMap = useMemo(
-    () => createPlanetEmissiveTexture(color, surfaceSeed),
-    [color, surfaceSeed],
+    () => createPlanetEmissiveTexture(color, surfaceSeed, planetType),
+    [color, surfaceSeed, planetType],
+  );
+  const cloudMap = useMemo(
+    () => createCloudTexture(surfaceSeed, planetType),
+    [surfaceSeed, planetType],
   );
 
   useEffect(() => {
     return () => {
       surfaceMap.dispose();
-      emissiveMap.dispose();
+      emissiveMap?.dispose();
+      cloudMap?.dispose();
     };
-  }, [surfaceMap, emissiveMap]);
+  }, [surfaceMap, emissiveMap, cloudMap]);
+
+  /*
+   * Material properties per archetype.
+   *
+   * A single roughness/metalness pair across all six is what made them
+   * look like one planet in different colours. Ice is smoother and more
+   * reflective; rock is matte and slightly metallic from mineral content;
+   * gas has no real surface, so it is uniformly rough.
+   */
+  const materialProps = {
+    'gas-giant': { roughness: 0.9, metalness: 0.04, emissiveIntensity: 0.42 },
+    'ice-giant': { roughness: 0.42, metalness: 0.12, emissiveIntensity: 0.34 },
+    terrestrial: { roughness: 0.72, metalness: 0.08, emissiveIntensity: 0.22 },
+    rocky: { roughness: 0.96, metalness: 0.16, emissiveIntensity: 0 },
+  }[planetType];
+
+  /* Rim strength: an atmosphere glows at the limb, an airless rock does not. */
+  const rimOpacity = planetType === 'rocky' ? 0.08 : planetType === 'ice-giant' ? 0.34 : 0.26;
 
   /*
    * Rings on the outer planets only.
@@ -649,7 +734,18 @@ function DomainPlanet({
    * Tilt stays above 0.3 rad. Below about 15° a ring is edge-on and renders
    * as a bright line through the planet, which looks like a glitch.
    */
-  const hasRing = orbitIndex >= 2;
+  /*
+   * Rings on the giants only.
+   *
+   * Previously this was orbit position alone. Type is the better rule: a
+   * small rocky body has neither the gravity to hold a ring system nor the
+   * visual mass to carry one, and giving every outer planet rings made the
+   * outer half of the system look repetitive.
+   *
+   * The orbit gate is gone — the system was widened instead, so even the
+   * innermost planet has room. See BASE_ORBIT_RADIUS for that arithmetic.
+   */
+  const hasRing = planetType === 'gas-giant' || planetType === 'ice-giant';
   const ringTilt = ((ringSeed % 1000) / 1000) * 0.44 + 0.3;
 
   useEffect(() => {
@@ -670,6 +766,8 @@ function DomainPlanet({
       }
 
       if (meshRef.current) meshRef.current.rotation.y += delta * 0.25;
+      // Clouds run ~40% faster than the ground beneath them.
+      if (cloudRef.current) cloudRef.current.rotation.y += delta * 0.35;
     }
 
     /*
@@ -755,6 +853,27 @@ function DomainPlanet({
           />
         </mesh>
 
+        {/*
+          Cloud shell.
+
+          Its own sphere at 1.02×, rotating faster than the surface. That
+          relative drift is most of what makes a planet look alive —
+          clouds baked into the surface texture turn in lockstep with the
+          ground and read as markings rather than weather.
+        */}
+        {cloudMap && (
+          <mesh ref={cloudRef} scale={1.02} raycast={() => null}>
+            <sphereGeometry args={[size, 40, 40]} />
+            <meshStandardMaterial
+              map={cloudMap}
+              transparent
+              opacity={0.5}
+              depthWrite={false}
+              roughness={1}
+            />
+          </mesh>
+        )}
+
         {/* Rim light. Tight to the surface and additive, so it reads as an
             edge catching light rather than fog around the planet. */}
         <mesh ref={atmosphereRef} scale={1.16} raycast={() => null}>
@@ -762,7 +881,7 @@ function DomainPlanet({
           <meshBasicMaterial
             color={color}
             transparent
-            opacity={0.26}
+            opacity={rimOpacity}
             side={THREE.BackSide}
             blending={THREE.AdditiveBlending}
             depthWrite={false}
@@ -933,7 +1052,15 @@ function ProjectPlanet({
  * Camera
  * ================================================================== */
 
-const HOME_POSITION = new THREE.Vector3(0, 10, 24);
+/*
+ * Framed against the widened system, not chosen by eye.
+ *
+ * At [0, 10, 24] the visible half-width was 15.45 units while the
+ * Academics orbit now sits at 16.75 — it would have been clipped off the
+ * side of the frame. This gives 17.88 at a 1.4 aspect ratio, which is the
+ * narrowest desktop window worth designing for.
+ */
+const HOME_POSITION = new THREE.Vector3(0, 11, 28);
 
 /**
  * Eases the camera toward a target rather than cutting to it (spec §15).
@@ -953,11 +1080,6 @@ function CameraRig({
 }: {
   focusTarget: THREE.Vector3 | null;
   reduced: boolean;
-  /**
-   * Zoom as a distance multiplier, held in a ref rather than state.
-   * A wheel gesture fires dozens of events per second; routing each
-   * through React would re-render the scene tree to move a camera.
-   */
   zoomRef: React.RefObject<number>;
 }) {
   const { camera } = useThree();
@@ -965,26 +1087,76 @@ function CameraRig({
   const desiredLook = useRef(new THREE.Vector3(0, 0, 0));
   const scratch = useRef(new THREE.Vector3());
 
+  /*
+   * Entrance, once, on mount (§9).
+   *
+   * GSAP earns its place here specifically: this is a scripted move with a
+   * defined start, end and easing curve, and it needs to run to completion
+   * regardless of what the per-frame follow logic wants. A `lerp` cannot
+   * express "travel this path over 2.4 seconds" — it only ever expresses
+   * "approach the current target", so it has no notion of a beginning.
+   *
+   * `entranceDone` gates the follow logic below. Without it, the rig would
+   * fight the tween every frame and the camera would arrive instantly.
+   */
+  const entranceDone = useRef(false);
+
+  useEffect(() => {
+    if (reduced) {
+      // §14: no camera flight. The scene is simply already composed.
+      camera.position.copy(HOME_POSITION);
+      camera.lookAt(0, 0, 0);
+      entranceDone.current = true;
+      return;
+    }
+
+    // Start further out and higher, so the move settles inward and down —
+    // arriving at a system rather than sliding across it.
+    camera.position.set(0, 30, 62);
+    camera.lookAt(0, 0, 0);
+
+    const tween = gsap.to(camera.position, {
+      x: HOME_POSITION.x,
+      y: HOME_POSITION.y,
+      z: HOME_POSITION.z,
+      duration: 2.4,
+      // Slow out of the gate, long deceleration. `power2.out` arrives too
+      // eagerly for a move this size and reads as a jump cut.
+      ease: 'power3.out',
+      onUpdate: () => camera.lookAt(0, 0, 0),
+      onComplete: () => {
+        entranceDone.current = true;
+      },
+    });
+
+    return () => {
+      tween.kill();
+      entranceDone.current = true;
+    };
+  }, [camera, reduced]);
+
   useFrame((_, delta) => {
+    // Hand control to the tween until it finishes.
+    if (!entranceDone.current) return;
+
     const ease = Math.min(delta * 2.2, 1);
     const zoom = zoomRef.current ?? 1;
 
     let targetPosition: THREE.Vector3;
 
     if (focusTarget) {
-      // Sit off to one side of the planet and slightly above, rather than
-      // directly in front. Head-on, the planet is a flat disc and the
-      // orbit it sits on is invisible.
-      const offset = focusTarget.clone().normalize().multiplyScalar(3.1 * zoom);
+      // Off to one side and slightly above, not head-on. Straight in
+      // front, a planet is a flat disc and its orbit is invisible.
+      const offset = focusTarget.clone().normalize().multiplyScalar(3.4 * zoom);
       targetPosition = focusTarget
         .clone()
         .add(offset)
-        .add(new THREE.Vector3(0, 1.4 * zoom, 0));
+        .add(new THREE.Vector3(0, 1.5 * zoom, 0));
       desiredLook.current.copy(focusTarget);
     } else {
-      // Scale the home position rather than dollying along the view axis,
-      // so the camera keeps its angle on the system as it pulls back. A
-      // straight dolly would flatten toward a top-down view at the far end.
+      // Scaling the home position rather than dollying along the view
+      // axis keeps the camera's angle on the system as it pulls back. A
+      // straight dolly flattens toward a top-down view at the far end.
       targetPosition = scratch.current.copy(HOME_POSITION).multiplyScalar(zoom);
       desiredLook.current.set(0, 0, 0);
     }
@@ -1145,12 +1317,50 @@ export function Scene({
       <group ref={groupRef}>
         <CentralStar reduced={reduced} />
 
+        {/*
+          Belts occupy genuinely free gaps.
+
+          My first placement put one at radius 10.75 ± 0.62, which ran
+          straight through Other's ring system (10.92–13.08). Every
+          planet's full reach — sphere plus rings — was mapped before
+          choosing these, and each belt's width is 85% of the gap it sits
+          in so rocks at the tail of the distribution still clear their
+          neighbours.
+
+          Two placements: the 15.03–16.22 gap between Achievements and
+          Academics, and open space beyond the outermost orbit. The inner
+          gaps are all under 0.7 wide, which is too narrow for a belt to
+          read as anything but a line.
+
+          Halved under reduced motion, where nothing moves and the density
+          only costs fill rate.
+        */}
+        <AsteroidBelt
+          radius={15.63}
+          width={0.5}
+          count={reduced ? 160 : 340}
+          color="#b9a7d6"
+          seed={0x51ed270b}
+          reduced={reduced}
+          inclination={0.06}
+        />
+        <AsteroidBelt
+          radius={19.2}
+          width={1.1}
+          count={reduced ? 200 : 420}
+          color="#9d8ec2"
+          seed={0x2f6a88c1}
+          reduced={reduced}
+          inclination={-0.09}
+        />
+
         {placements.map((p, index) => (
           <group key={p.domain.id}>
             <OrbitRing
               radius={p.radius}
               inclination={p.inclination}
               color={colors[p.domain.id].accent}
+              emphasis={selectedId === p.domain.id ? 1 : 0}
             />
             <DomainPlanet
               id={p.domain.id}
@@ -1168,6 +1378,7 @@ export function Scene({
               onSelect={onSelect}
               register={register}
               orbitIndex={index}
+              planetType={p.domain.planetType}
             >
               {projectsByDomain[p.domain.id]?.map((placement) => (
                 <group key={placement.project.id}>

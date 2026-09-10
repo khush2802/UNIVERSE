@@ -17,7 +17,19 @@ import type { Project } from '@/types/project';
  */
 
 /** Scene units. The camera framing in Scene.tsx assumes this scale. */
-export const BASE_ORBIT_RADIUS = 4.6;
+/*
+ * Widened from 4.6 to 5.0 so the innermost planet can carry a ring.
+ *
+ * At 4.6, AI's ring reached 3.67 units from the centre while the star's
+ * outer corona shell sits at 3.85 — the ring would have passed through
+ * the star's glow on every revolution. The reference makes AI the
+ * signature ringed planet, so the system moved out rather than the ring
+ * coming off.
+ *
+ * Every neighbouring pair was re-checked at this scale: the tightest is
+ * AI+Web, whose rings together span 1.86 against a 2.25 gap.
+ */
+export const BASE_ORBIT_RADIUS = 5.0;
 export const STAR_RADIUS = 1.75;
 
 export interface DomainPlacement {

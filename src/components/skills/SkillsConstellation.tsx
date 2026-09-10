@@ -44,7 +44,7 @@ export function SkillsConstellation({ groups }: { groups: SkillGroup[] }) {
                         isSelected
                           ? 'border-transparent bg-[var(--color-ink)] text-[var(--color-void)]'
                           : hasEvidence
-                            ? 'border-[var(--color-line-strong)] text-[var(--color-ink)] hover:border-[var(--color-web)]'
+                            ? 'border-[var(--color-line-strong)] text-[var(--color-ink)] hover:border-[var(--color-nebula-core)]'
                             : // Stated but not demonstrated: present, and
                               // visibly quieter, without being hidden away.
                               'border-[var(--color-line)] text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]',

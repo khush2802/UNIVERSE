@@ -47,7 +47,7 @@ export function DocumentSchema({
 
                   {field.references && (
                     // Named as a reference, never as a foreign key.
-                    <span className="ml-2 text-xs text-[var(--color-web)]">
+                    <span className="ml-2 text-xs text-[var(--color-nebula-warm)]">
                       → references {field.references}
                     </span>
                   )}

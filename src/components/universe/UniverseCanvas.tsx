@@ -10,6 +10,7 @@ import { profile } from '@/data/profile';
 import { projectCounts } from '@/lib/universe';
 import type { Project } from '@/types/project';
 import { DomainPanel } from './DomainPanel';
+import { PlanetLabel } from './PlanetLabel';
 import { DomainButtons, OrbitFallback } from './OrbitFallback';
 import type { ScreenPoint } from './Scene';
 
@@ -175,7 +176,7 @@ export function UniverseCanvas({ projects = [] }: { projects?: Project[] }) {
           <>
             <Canvas
               dpr={[1, 2]}
-              camera={{ position: [0, 10, 24], fov: 46 }}
+              camera={{ position: [0, 11, 28], fov: 46 }}
               frameloop={reduced ? 'demand' : visible ? 'always' : 'never'}
               gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
               style={{ background: 'transparent' }}
@@ -198,7 +199,7 @@ export function UniverseCanvas({ projects = [] }: { projects?: Project[] }) {
             </Canvas>
 
             {/* Labels live in the DOM, above the canvas. Real text: it
-                stays crisp at any zoom and a screen reader can read it,
+                stays crisp at any zoom and a screen reader could read it,
                 neither of which is true of text drawn into a canvas. */}
             <div className="pointer-events-none absolute inset-0" aria-hidden>
               {Object.values(DOMAINS).map((domain) => (
@@ -208,25 +209,18 @@ export function UniverseCanvas({ projects = [] }: { projects?: Project[] }) {
                     if (el) labelRefs.current.set(domain.id, el);
                     else labelRefs.current.delete(domain.id);
                   }}
-                  className="absolute left-0 top-0 whitespace-nowrap transition-opacity duration-200"
+                  className="absolute left-0 top-0 transition-opacity duration-200"
                   style={{ opacity: 0 }}
                 >
-                  <span
-                    className="label-technical block translate-y-8 rounded-full px-2 py-0.5 text-[length:var(--text-2xs)]"
-                    style={{
-                      color:
-                        hoveredId === domain.id || selectedId === domain.id
-                          ? `var(${domain.accentVar})`
-                          : 'var(--color-ink-faint)',
-                    }}
-                  >
-                    {domain.label}
-                    {counts[domain.id] > 0 && (
-                      <span className="ml-1.5 opacity-60">
-                        {counts[domain.id]}
-                      </span>
-                    )}
-                  </span>
+                  {/* Offset up and right of the planet rather than centred
+                      on it, so the card never covers the thing it names. */}
+                  <div className="-translate-y-[130%] translate-x-4">
+                    <PlanetLabel
+                      domain={domain}
+                      active={hoveredId === domain.id || selectedId === domain.id}
+                      count={counts[domain.id] ?? 0}
+                    />
+                  </div>
                 </div>
               ))}
             </div>

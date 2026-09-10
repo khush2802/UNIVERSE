@@ -63,7 +63,7 @@ export function SqlSchema({
                       <Link2
                         size={12}
                         aria-label={`references ${column.foreignKey}`}
-                        className="text-[var(--color-web)]"
+                        className="text-[var(--color-nebula-warm)]"
                       />
                     )}
                   </span>

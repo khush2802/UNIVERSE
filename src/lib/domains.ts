@@ -21,8 +21,19 @@ export const DOMAIN_IDS = [
 
 export type DomainId = (typeof DOMAIN_IDS)[number];
 
+/**
+ * Planet archetypes.
+ *
+ * §4 asks for planet types that actually look different rather than one
+ * material with a different hue. Each type gets its own texture generator
+ * and material treatment.
+ */
+export type PlanetType = 'gas-giant' | 'ice-giant' | 'terrestrial' | 'rocky';
+
 export interface Domain {
   id: DomainId;
+  /** Drives surface generation and material choice. */
+  planetType: PlanetType;
   /** Shown to visitors. */
   label: string;
   /** One line, used in the universe tooltip and the domain panel. */
@@ -43,6 +54,8 @@ export interface Domain {
 export const DOMAINS: Record<DomainId, Domain> = {
   ai: {
     id: 'ai',
+    // Violet gas giant with rings — the reference's signature planet.
+    planetType: 'gas-giant',
     label: 'AI & ML',
     blurb: 'Language models, agents and retrieval systems.',
     accentVar: '--color-ai',
@@ -52,6 +65,8 @@ export const DOMAINS: Record<DomainId, Domain> = {
   },
   web: {
     id: 'web',
+    // Ice giant: smooth banding, strong rim, cool palette.
+    planetType: 'ice-giant',
     label: 'Web development',
     blurb: 'Full-stack applications, APIs and interfaces.',
     accentVar: '--color-web',
@@ -61,6 +76,9 @@ export const DOMAINS: Record<DomainId, Domain> = {
   },
   dsa: {
     id: 'dsa',
+    // Terrestrial — continents, ocean, cloud layer. The one planet that
+    // reads as somewhere you could stand.
+    planetType: 'terrestrial',
     label: 'DSA',
     blurb: 'Data structures, algorithms and problem solving.',
     accentVar: '--color-dsa',
@@ -70,6 +88,7 @@ export const DOMAINS: Record<DomainId, Domain> = {
   },
   other: {
     id: 'other',
+    planetType: 'gas-giant',
     label: 'Other',
     blurb: 'Tools, experiments and everything that fits nowhere else.',
     accentVar: '--color-projects',
@@ -79,6 +98,8 @@ export const DOMAINS: Record<DomainId, Domain> = {
   },
   achievements: {
     id: 'achievements',
+    // Small, cratered, airless.
+    planetType: 'rocky',
     label: 'Achievements',
     blurb: 'Competition, leadership and recognition.',
     accentVar: '--color-achievements',
@@ -88,6 +109,7 @@ export const DOMAINS: Record<DomainId, Domain> = {
   },
   academics: {
     id: 'academics',
+    planetType: 'rocky',
     label: 'Academics',
     blurb: 'Education and formal study.',
     accentVar: '--color-academics',

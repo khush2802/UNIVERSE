@@ -140,7 +140,7 @@ export default async function ProjectPage({ params }: PageProps) {
             href={project.repository.url}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-line-strong)] px-4 py-2 text-sm transition-colors hover:border-[var(--color-web)]"
+            className="inline-flex items-center gap-2 rounded-full border border-[var(--color-line-strong)] px-4 py-2 text-sm transition-colors hover:border-[var(--color-nebula-core)]"
           >
             <Github size={15} aria-hidden />
             GitHub
@@ -151,7 +151,7 @@ export default async function ProjectPage({ params }: PageProps) {
               href={project.liveUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--color-line-strong)] px-4 py-2 text-sm transition-colors hover:border-[var(--color-web)]"
+              className="inline-flex items-center gap-2 rounded-full border border-[var(--color-line-strong)] px-4 py-2 text-sm transition-colors hover:border-[var(--color-nebula-core)]"
             >
               <ExternalLink size={15} aria-hidden />
               Live demo

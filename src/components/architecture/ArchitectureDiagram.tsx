@@ -141,7 +141,7 @@ export function ArchitectureDiagram({
               aria-label={`${node.label}. ${node.description}`}
               className={`plate absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 px-3 py-2 text-sm transition-colors ${
                 isSelected
-                  ? 'border-[var(--color-web)] text-[var(--color-ink)]'
+                  ? 'border-[var(--color-nebula-core)] text-[var(--color-ink)]'
                   : 'hover:border-[var(--color-line-strong)]'
               }`}
               style={{ left: pos.left, top: pos.top }}

@@ -95,7 +95,7 @@ export function Hero() {
                 href={social.resume}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-[var(--color-line-strong)] px-5 py-2.5 text-sm text-[var(--color-ink-muted)] transition-colors hover:border-[var(--color-web)] hover:text-[var(--color-ink)]"
+                className="inline-flex items-center gap-2 rounded-full border border-[var(--color-line-strong)] px-5 py-2.5 text-sm text-[var(--color-ink-muted)] transition-colors hover:border-[var(--color-nebula-core)] hover:text-[var(--color-ink)]"
               >
                 <FileText size={15} aria-hidden />
                 Resume
